@@ -1,6 +1,7 @@
 package com.shark.svgaplayer
 
 import android.os.Bundle
+import android.util.Log
 import com.google.android.material.snackbar.Snackbar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.findNavController
@@ -32,6 +33,7 @@ class MainActivity : AppCompatActivity() {
             Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                 .setAction("Action", null).show()
         }
+        Log.d("xxx","test")
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
