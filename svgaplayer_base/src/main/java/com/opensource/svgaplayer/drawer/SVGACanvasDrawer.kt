@@ -92,7 +92,7 @@ internal class SVGACanvasDrawer(videoItem: SVGAVideoEntity, private val dynamicI
 
     private fun isMatteBegin(spriteIndex: Int, sprites: List<SVGADrawerSprite>): Boolean {
         if (beginIndexList == null) {
-            val boolArray = Array(sprites.count()){false}
+            val boolArray = Array(sprites.count()) { false }
             sprites.forEachIndexed { index, svgaDrawerSprite ->
                 svgaDrawerSprite.imageKey?.let {
                     /// Filter matte sprite
@@ -102,9 +102,9 @@ internal class SVGACanvasDrawer(videoItem: SVGAVideoEntity, private val dynamicI
                     }
                 }
                 svgaDrawerSprite.matteKey?.let {
-                    if (it.isNotEmpty()) {
-                        sprites[index - 1].let { lastSprite ->
-                            if (lastSprite.matteKey == null || lastSprite.matteKey.isEmpty()) {
+                    if (it.length > 0) {
+                        sprites.get(index - 1)?.let { lastSprite ->
+                            if (lastSprite.matteKey.isNullOrEmpty()) {
                                 boolArray[index] = true
                             } else {
                                 if (lastSprite.matteKey != svgaDrawerSprite.matteKey) {
@@ -122,7 +122,7 @@ internal class SVGACanvasDrawer(videoItem: SVGAVideoEntity, private val dynamicI
 
     private fun isMatteEnd(spriteIndex: Int, sprites: List<SVGADrawerSprite>): Boolean {
         if (endIndexList == null) {
-            val boolArray = Array(sprites.count()){false}
+            val boolArray = Array(sprites.count()) { false }
             sprites.forEachIndexed { index, svgaDrawerSprite ->
                 svgaDrawerSprite.imageKey?.let {
                     /// Filter matte sprite
@@ -132,13 +132,13 @@ internal class SVGACanvasDrawer(videoItem: SVGAVideoEntity, private val dynamicI
                     }
                 }
                 svgaDrawerSprite.matteKey?.let {
-                    if (it.isNotEmpty()) {
+                    if (it.length > 0) {
                         // Last one
                         if (index == sprites.count() - 1) {
                             boolArray[index] = true
                         } else {
-                            sprites[index + 1].let { nextSprite ->
-                                if (nextSprite.matteKey == null || nextSprite.matteKey.isEmpty()) {
+                            sprites.get(index + 1)?.let { nextSprite ->
+                                if (nextSprite.matteKey.isNullOrEmpty()) {
                                     boolArray[index] = true
                                 } else {
                                     if (nextSprite.matteKey != svgaDrawerSprite.matteKey) {
@@ -345,7 +345,10 @@ internal class SVGACanvasDrawer(videoItem: SVGAVideoEntity, private val dynamicI
                     if (it != 0x00000000) {
                         paint.style = Paint.Style.FILL
                         paint.color = it
-                        paint.alpha = Math.min(255, Math.max(0, (sprite.frameEntity.alpha * 255).toInt()))
+                        val alpha = Math.min(255, Math.max(0, (sprite.frameEntity.alpha * 255).toInt()))
+                        if (alpha != 255) {
+                            paint.alpha = alpha
+                        }
                         if (sprite.frameEntity.maskPath !== null) canvas.save()
                         sprite.frameEntity.maskPath?.let { maskPath ->
                             val path2 = this.sharedValues.sharedPath2()
@@ -357,24 +360,26 @@ internal class SVGACanvasDrawer(videoItem: SVGAVideoEntity, private val dynamicI
                         if (sprite.frameEntity.maskPath !== null) canvas.restore()
                     }
                 }
-                shape.styles?.strokeWidth?.let { strokeWidth ->
-                    if (strokeWidth > 0) {
+                shape.styles?.strokeWidth?.let {
+                    if (it > 0) {
+                        paint.alpha = (sprite.frameEntity.alpha * 255).toInt()
                         paint.style = Paint.Style.STROKE
                         shape.styles?.stroke?.let {
                             paint.color = it
-                            paint.alpha = 255.coerceAtMost(
-                                0.coerceAtLeast((sprite.frameEntity.alpha * 255).toInt())
-                            )
+                            val alpha = Math.min(255, Math.max(0, (sprite.frameEntity.alpha * 255).toInt()))
+                            if (alpha != 255) {
+                                paint.alpha = alpha
+                            }
                         }
                         val scale = matrixScale(frameMatrix)
                         shape.styles?.strokeWidth?.let {
                             paint.strokeWidth = it * scale
                         }
-                        shape.styles?.lineCap?.let { lineCap ->
+                        shape.styles?.lineCap?.let {
                             when {
-                                lineCap.equals("butt", true) -> paint.strokeCap = Paint.Cap.BUTT
-                                lineCap.equals("round", true) -> paint.strokeCap = Paint.Cap.ROUND
-                                lineCap.equals("square", true) -> paint.strokeCap = Paint.Cap.SQUARE
+                                it.equals("butt", true) -> paint.strokeCap = Paint.Cap.BUTT
+                                it.equals("round", true) -> paint.strokeCap = Paint.Cap.ROUND
+                                it.equals("square", true) -> paint.strokeCap = Paint.Cap.SQUARE
                             }
                         }
                         shape.styles?.lineJoin?.let {
@@ -390,8 +395,8 @@ internal class SVGACanvasDrawer(videoItem: SVGAVideoEntity, private val dynamicI
                         shape.styles?.lineDash?.let {
                             if (it.size == 3 && (it[0] > 0 || it[1] > 0)) {
                                 paint.pathEffect = DashPathEffect(floatArrayOf(
-                                        (if (it[0] < 1.0f) 1.0f else it[0]) * scale,
-                                        (if (it[1] < 0.1f) 0.1f else it[1]) * scale
+                                    (if (it[0] < 1.0f) 1.0f else it[0]) * scale,
+                                    (if (it[1] < 0.1f) 0.1f else it[1]) * scale
                                 ), it[2] * scale)
                             }
                         }
