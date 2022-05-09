@@ -3,36 +3,24 @@ package com.shark.svgaplayer_base
 import android.content.Context
 import android.util.Log
 import androidx.annotation.MainThread
-import com.shark.svgaplayer_base.fetch.AssetUriFetcher
+import com.opensource.svgaplayer.SVGAVideoEntity
 import com.shark.svgaplayer_base.decode.SVGAVideoEntityDecoder
-import com.shark.svgaplayer_base.intercept.EngineInterceptor
+import com.shark.svgaplayer_base.disk.DiskCache
 import com.shark.svgaplayer_base.fetch.*
-import com.shark.svgaplayer_base.fetch.HttpUriFetcher
-import com.shark.svgaplayer_base.fetch.HttpUrlFetcher
-import com.shark.svgaplayer_base.fetch.ResourceUriFetcher
+import com.shark.svgaplayer_base.intercept.EngineInterceptor
 import com.shark.svgaplayer_base.intercept.RealInterceptorChain
 import com.shark.svgaplayer_base.map.FileUriMapper
 import com.shark.svgaplayer_base.map.ResourceUriMapper
 import com.shark.svgaplayer_base.map.StringMapper
 import com.shark.svgaplayer_base.memory.*
-import com.shark.svgaplayer_base.memory.DelegateService
-import com.shark.svgaplayer_base.memory.RealMemoryCache
-import com.shark.svgaplayer_base.memory.StrongMemoryCache
-import com.shark.svgaplayer_base.memory.TargetDelegate
-import com.shark.svgaplayer_base.memory.WeakMemoryCache
 import com.shark.svgaplayer_base.recycle.VideoEntityRefCounter
 import com.shark.svgaplayer_base.request.*
-import com.shark.svgaplayer_base.request.ViewTargetDisposable
 import com.shark.svgaplayer_base.size.Size
 import com.shark.svgaplayer_base.target.ViewTarget
 import com.shark.svgaplayer_base.util.*
 import com.shark.svgaplayer_base.util.Utils.REQUEST_TYPE_ENQUEUE
 import com.shark.svgaplayer_base.util.Utils.REQUEST_TYPE_EXECUTE
-import com.shark.svgaplayer_base.util.log
 import com.shark.svgaplayer_base.util.job
-import com.shark.svgaplayer_base.util.metadata
-import com.shark.svgaplayer_base.util.requestManager
-import com.opensource.svgaplayer.SVGAVideoEntity
 import kotlinx.coroutines.*
 import okhttp3.Call
 import java.util.concurrent.atomic.AtomicBoolean
@@ -45,7 +33,7 @@ import kotlin.coroutines.coroutineContext
  * @Email svenjzm@gmail.com
  */
 class RealSvgaLoader(
-    context: Context,
+    val context: Context,
     override val defaults: DefaultRequestOptions,
     private val referenceCounter: VideoEntityRefCounter,
     private val strongMemoryCache: StrongMemoryCache,
@@ -64,6 +52,7 @@ class RealSvgaLoader(
         MemoryCacheService(referenceCounter, strongMemoryCache, weakMemoryCache)
     private val requestService = RequestService(logger)
     override val memoryCache = RealMemoryCache(strongMemoryCache, weakMemoryCache, referenceCounter)
+    override val diskCache: DiskCache = SingletonDiskCache.get(context)
     private val systemCallbacks = SystemCallbacks(this, context)
     private val registry = componentRegistry.newBuilder()
         // Mappers

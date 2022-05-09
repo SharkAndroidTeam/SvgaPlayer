@@ -8,6 +8,7 @@ import android.os.Build.VERSION.SDK_INT
 import android.os.StatFs
 import android.view.View
 import androidx.annotation.Px
+import com.shark.svgaplayer_base.disk.DiskCache
 import com.shark.svgaplayer_base.request.SVGAResult
 import com.shark.svgaplayer_base.util.*
 import com.shark.svgaplayer_base.util.blockCountCompat
@@ -129,5 +130,33 @@ object Utils {
     @JvmStatic
     fun isZipFormat(source: BufferedSource): Boolean {
         return source.rangeEquals(0, ZIP_HEADER)
+    }
+
+}
+
+
+internal val Context.safeCacheDir: File get() = cacheDir.apply { mkdirs() }
+
+/**
+ * Holds the singleton instance of the disk cache. We need to have a singleton disk cache
+ * instance to support creating multiple [ImageLoader]s without specifying the disk cache
+ * directory.
+ *
+ * @see DiskCache.Builder.directory
+ */
+internal object SingletonDiskCache {
+
+    private const val FOLDER_NAME = "svga_cache"
+    private var instance: DiskCache? = null
+
+    @Synchronized
+    fun get(context: Context): DiskCache {
+        return instance ?: run {
+            // Create the singleton disk cache instance.
+            DiskCache.Builder()
+                .directory(context.safeCacheDir.resolve(FOLDER_NAME))
+                .build()
+                .also { instance = it }
+        }
     }
 }

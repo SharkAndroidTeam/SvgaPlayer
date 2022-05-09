@@ -3,6 +3,7 @@ package com.shark.svgaplayer_base
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.annotation.FloatRange
+import com.shark.svgaplayer_base.disk.DiskCache
 import com.shark.svgaplayer_base.memory.EmptyWeakMemoryCache
 import com.shark.svgaplayer_base.memory.MemoryCache
 import com.shark.svgaplayer_base.memory.RealWeakMemoryCache
@@ -40,6 +41,11 @@ interface SvgaLoader {
      * An in-memory cache of recently loaded images.
      */
     val memoryCache: MemoryCache
+
+    /**
+     * An on-disk cache of previously loaded images.
+     */
+    val diskCache: DiskCache?
 
     /**
      * Enqueue the [request] to be executed asynchronously.
