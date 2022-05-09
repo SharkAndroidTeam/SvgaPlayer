@@ -5,6 +5,7 @@ import android.webkit.MimeTypeMap
 import androidx.annotation.VisibleForTesting
 import com.shark.svgaplayer_base.decode.DataSource
 import com.shark.svgaplayer_base.decode.Options
+import com.shark.svgaplayer_base.disk.DiskCache
 import com.shark.svgaplayer_base.network.HttpException
 import com.shark.svgaplayer_base.size.Size
 import com.shark.svgaplayer_base.util.await
@@ -13,6 +14,7 @@ import com.shark.svgaplayer_base.util.md5Key
 import okhttp3.CacheControl
 import okhttp3.Call
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 import okhttp3.ResponseBody
 
@@ -22,7 +24,7 @@ internal class HttpUriFetcher(callFactory: Call.Factory) : HttpFetcher<Uri>(call
 
     override fun key(data: Uri) = data.toString().md5Key()
 
-    override fun Uri.toHttpUrl(): HttpUrl = HttpUrl.get(toString())
+    override fun Uri.toHttpUrl(): HttpUrl = toString().toHttpUrl()
 }
 
 internal class HttpUrlFetcher(callFactory: Call.Factory) : HttpFetcher<HttpUrl>(callFactory) {
@@ -67,17 +69,18 @@ internal abstract class HttpFetcher<T : Any>(private val callFactory: Call.Facto
 
         val response = callFactory.newCall(request.build()).await()
         if (!response.isSuccessful) {
-            response.body()?.close()
+            response.body?.close()
             throw HttpException(response)
         }
-        val body = checkNotNull(response.body()) { "Null response body!" }
+        val body = checkNotNull(response.body) { "Null response body!" }
 
         return SourceResult(
             source = body.source(),
             mimeType = getMimeType(url, body),
-            dataSource = if (response.cacheResponse() != null) DataSource.DISK else DataSource.NETWORK
+            dataSource = if (response.cacheResponse != null) DataSource.DISK else DataSource.NETWORK
         )
     }
+
 
     /**
      * Parse the response's `content-type` header.

@@ -36,7 +36,6 @@ class DefaultSVGALoaderFactory(private val context: Context) : SVGALoaderFactory
                             .dispatcher(dispatcher)
                             .ignoreVerify()
                             .setupSSLFactory()
-                            .forceTls12() // The Unsplash API requires TLS 1.2, which isn't enabled by default before API 21.
                             .addNetworkInterceptor(cacheControlInterceptor)
                             .build()
                 }

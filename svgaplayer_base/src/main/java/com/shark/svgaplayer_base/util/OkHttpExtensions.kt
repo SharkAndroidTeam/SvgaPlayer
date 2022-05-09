@@ -13,7 +13,9 @@ import java.io.IOException
 import java.net.InetAddress
 import java.net.Socket
 import java.net.UnknownHostException
+import java.security.KeyManagementException
 import java.security.KeyStore
+import java.security.NoSuchAlgorithmException
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.net.ssl.*
@@ -40,41 +42,72 @@ fun OkHttpClient.Builder.ignoreVerify(): OkHttpClient.Builder {
  *
  * This enables TLS 1.2 support on API 16+.
  */
-@RequiresApi(16)
-fun OkHttpClient.Builder.forceTls12(): OkHttpClient.Builder {
-    // TLS 1.2 is enabled by default on API 21 and above.
-    if (SDK_INT >= 21) return this
-
-    try {
-        val sslContext = SSLContext.getInstance(TLS_1_2)
-        val trustManager = getDefaultTrustManager()
-        sslContext.init(null, null, null)
-        val socketFactory = Tls12SocketFactory(sslContext.socketFactory)
-
-        // If we don't find the X509TrustManager, let OkHttp try to find it.
-        if (trustManager != null) {
-            sslSocketFactory(socketFactory, trustManager)
-        } else {
-            @Suppress("DEPRECATION")
-            sslSocketFactory(socketFactory)
-        }
-
-        connectionSpecs(listOf(CONNECTION_SPEC_TLS_1_2_ONLY))
-    } catch (_: Exception) {}
-
-    return this
-}
+//@RequiresApi(16)
+//fun OkHttpClient.Builder.forceTls12(): OkHttpClient.Builder {
+//    // TLS 1.2 is enabled by default on API 21 and above.
+//    if (SDK_INT >= 21) return this
+//
+//    try {
+//        val sslContext = SSLContext.getInstance(TLS_1_2)
+//        val trustManager = getDefaultTrustManager()
+//        sslContext.init(null, null, null)
+//        val socketFactory = Tls12SocketFactory(sslContext.socketFactory)
+//
+//        // If we don't find the X509TrustManager, let OkHttp try to find it.
+//        if (trustManager != null) {
+//            sslSocketFactory(socketFactory, trustManager)
+//        } else {
+//            @Suppress("DEPRECATION")
+//            sslSocketFactory(socketFactory)
+//        }
+//
+//        connectionSpecs(listOf(CONNECTION_SPEC_TLS_1_2_ONLY))
+//    } catch (_: Exception) {}
+//
+//    return this
+//}
 
 fun OkHttpClient.Builder.setupSSLFactory(): OkHttpClient.Builder {
     try {
-        val sc = SSLContext.getInstance("TLS")
-        sc.init(null, arrayOf<TrustManager>(TrustAllCerts()), SecureRandom())
-        sslSocketFactory(sc.socketFactory)
+        sslSocketFactory(SSLFactory.sslContext.socketFactory, SSLFactory.xtm)
     } catch (e: java.lang.Exception) {
     }
 
     return this
 }
+
+
+object SSLFactory {
+
+    val sslContext: SSLContext by lazy {
+        SSLContext.getInstance("SSL").also {
+            try {
+                it.init(null, arrayOf<TrustManager>(xtm), SecureRandom())
+            } catch (e: NoSuchAlgorithmException) {
+                e.printStackTrace()
+            } catch (e: KeyManagementException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    var xtm: X509TrustManager = @SuppressLint("CustomX509TrustManager")
+    object : X509TrustManager {
+        @SuppressLint("TrustAllX509TrustManager")
+        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {
+        }
+
+        @SuppressLint("TrustAllX509TrustManager")
+        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
+        }
+
+        override fun getAcceptedIssuers(): Array<X509Certificate> {
+            return arrayOf()
+        }
+    }
+
+}
+
 
 /** Find and initialize the default trust manager. */
 private fun getDefaultTrustManager(): X509TrustManager? {
@@ -103,7 +136,12 @@ private class Tls12SocketFactory(private val delegate: SSLSocketFactory) : SSLSo
     }
 
     @Throws(IOException::class, UnknownHostException::class)
-    override fun createSocket(host: String, port: Int, localHost: InetAddress, localPort: Int): Socket {
+    override fun createSocket(
+        host: String,
+        port: Int,
+        localHost: InetAddress,
+        localPort: Int
+    ): Socket {
         return wrap(delegate.createSocket(host, port, localHost, localPort))
     }
 
@@ -113,7 +151,12 @@ private class Tls12SocketFactory(private val delegate: SSLSocketFactory) : SSLSo
     }
 
     @Throws(IOException::class)
-    override fun createSocket(address: InetAddress, port: Int, localAddress: InetAddress, localPort: Int): Socket {
+    override fun createSocket(
+        address: InetAddress,
+        port: Int,
+        localAddress: InetAddress,
+        localPort: Int
+    ): Socket {
         return wrap(delegate.createSocket(address, port, localAddress, localPort))
     }
 
@@ -126,7 +169,7 @@ private class Tls12SocketFactory(private val delegate: SSLSocketFactory) : SSLSo
 }
 
 @SuppressLint("TrustAllX509TrustManager")
-private class TrustAllCerts: X509TrustManager {
+private class TrustAllCerts : X509TrustManager {
     override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {
     }
 

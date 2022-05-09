@@ -173,10 +173,10 @@ class DynamicEntityBuilder {
             val response = callFactory.newCall(request.build()).await()
 
             if (!response.isSuccessful) {
-                response.body()?.close()
+                response.body?.close()
                 throw HttpException(response)
             }
-            val body = checkNotNull(response.body()) { "Null response body!" }
+            val body = checkNotNull(response.body) { "Null response body!" }
             BitmapFactory.decodeStream(body.byteStream())
         } catch (e : Throwable) {
             Log.e("DynamicEntityBuilder", "Fetch bitmap failed from $url", e)
