@@ -159,7 +159,8 @@ class SVGAVideoEntity {
     }
 
     private fun createBitmap(byteArray: ByteArray, filePath: String): Bitmap? {
-        val bitmap = SVGABitmapByteArrayDecoder.decodeBitmapFrom(byteArray, mFrameWidth, mFrameHeight)
+        val bitmap =
+            SVGABitmapByteArrayDecoder.decodeBitmapFrom(byteArray, mFrameWidth, mFrameHeight)
         return bitmap ?: createBitmap(filePath)
     }
 
@@ -193,7 +194,10 @@ class SVGAVideoEntity {
         }
     }
 
-    private fun createSvgaAudioEntity(audio: AudioEntity, audiosFileMap: HashMap<String, File>): SVGAAudioEntity {
+    private fun createSvgaAudioEntity(
+        audio: AudioEntity,
+        audiosFileMap: HashMap<String, File>
+    ): SVGAAudioEntity {
         val item = SVGAAudioEntity(audio)
         val startTime = (audio.startTime ?: 0).toDouble()
         val totalTime = (audio.totalTime ?: 0).toDouble()
@@ -262,11 +266,11 @@ class SVGAVideoEntity {
 
     private fun generateSoundPool(entity: MovieEntity) = if (Build.VERSION.SDK_INT >= 21) {
         val attributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .build()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .build()
         SoundPool.Builder().setAudioAttributes(attributes)
-                .setMaxStreams(12.coerceAtMost(entity.audios.count()))
-                .build()
+            .setMaxStreams(12.coerceAtMost(entity.audios.count()))
+            .build()
     } else {
         SoundPool(12.coerceAtMost(entity.audios.count()), AudioManager.STREAM_MUSIC, 0)
     }
