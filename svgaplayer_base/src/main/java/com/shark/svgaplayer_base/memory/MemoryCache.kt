@@ -1,9 +1,13 @@
 package com.shark.svgaplayer_base.memory
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.os.Parcelable
+import androidx.annotation.FloatRange
 import com.shark.svgaplayer_base.size.Size
 import com.opensource.svgaplayer.SVGAVideoEntity
+import com.shark.svgaplayer_base.util.calculateMemoryCacheSize
+import com.shark.svgaplayer_base.util.defaultMemoryCacheSizePercent
 import kotlinx.parcelize.Parcelize
 
 /**
@@ -63,4 +67,75 @@ interface MemoryCache {
             val parameters: Map<String, String>
         ) : Key()
     }
+
+//    class Builder(private val context: Context) {
+//
+//        private var maxSizePercent = defaultMemoryCacheSizePercent(context)
+//        private var maxSizeBytes = 0
+//        private var strongReferencesEnabled = true
+//        private var weakReferencesEnabled = true
+//
+//        /**
+//         * Set the maximum size of the memory cache as a percentage of this application's
+//         * available memory.
+//         */
+//        fun maxSizePercent(@FloatRange(from = 0.0, to = 1.0) percent: Double) = apply {
+//            require(percent in 0.0..1.0) { "size must be in the range [0.0, 1.0]." }
+//            this.maxSizeBytes = 0
+//            this.maxSizePercent = percent
+//        }
+//
+//        /**
+//         * Set the maximum size of the memory cache in bytes.
+//         */
+//        fun maxSizeBytes(size: Int) = apply {
+//            require(size >= 0) { "size must be >= 0." }
+//            this.maxSizePercent = 0.0
+//            this.maxSizeBytes = size
+//        }
+//
+//        /**
+//         * Enables/disables strong reference tracking of values added to this memory cache.
+//         */
+//        fun strongReferencesEnabled(enable: Boolean) = apply {
+//            this.strongReferencesEnabled = enable
+//        }
+//
+//        /**
+//         * Enables/disables weak reference tracking of values added to this memory cache.
+//         * Weak references do not contribute to the current size of the memory cache.
+//         * This ensures that if a [Bitmap] hasn't been garbage collected yet it will be
+//         * returned from the memory cache.
+//         */
+//        fun weakReferencesEnabled(enable: Boolean) = apply {
+//            this.weakReferencesEnabled = enable
+//        }
+//
+//        /**
+//         * Create a new [MemoryCache] instance.
+//         */
+//        fun build(): MemoryCache {
+//            val weakMemoryCache = if (weakReferencesEnabled) {
+//                RealWeakMemoryCache()
+//            } else {
+//                EmptyWeakMemoryCache()
+//            }
+//            val strongMemoryCache = if (strongReferencesEnabled) {
+//                val maxSize = if (maxSizePercent > 0) {
+//                    calculateMemoryCacheSize(context, maxSizePercent)
+//                } else {
+//                    maxSizeBytes
+//                }
+//                if (maxSize > 0) {
+//                    RealStrongMemoryCache(maxSize, weakMemoryCache)
+//                } else {
+//                    EmptyStrongMemoryCache(weakMemoryCache)
+//                }
+//            } else {
+//                EmptyStrongMemoryCache(weakMemoryCache)
+//            }
+//            return RealMemoryCache(strongMemoryCache, weakMemoryCache)
+//        }
+//    }
+
 }

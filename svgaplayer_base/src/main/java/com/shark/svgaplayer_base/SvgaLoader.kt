@@ -12,9 +12,8 @@ import com.shark.svgaplayer_base.recycle.RealVideoEntityRefCounter
 import com.shark.svgaplayer_base.request.CachePolicy
 import com.shark.svgaplayer_base.request.*
 import com.shark.svgaplayer_base.size.Precision
-import com.shark.svgaplayer_base.util.DefaultLogger
-import com.shark.svgaplayer_base.util.Logger
-import com.shark.svgaplayer_base.util.Utils
+import com.shark.svgaplayer_base.util.*
+import com.shark.svgaplayer_base.util.SingletonDiskCache
 import com.shark.svgaplayer_base.util.lazyCallFactory
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +39,7 @@ interface SvgaLoader {
     /**
      * An in-memory cache of recently loaded images.
      */
-    val memoryCache: MemoryCache
+//    val memoryCache: MemoryCache?
 
     /**
      * An on-disk cache of previously loaded images.
@@ -79,13 +78,15 @@ interface SvgaLoader {
     class Builder(context: Context) {
         private val applicationContext = context.applicationContext
 
-        private var callFactory: Call.Factory? = null
+        private var callFactory: Lazy<Call.Factory>? = null
         private var eventListenerFactory: EventListener.Factory? = null
         private var registry: ComponentRegistry? = null
         private var logger: Logger? = DefaultLogger()
         private var defaults = DefaultRequestOptions.INSTANCE
-
-        private var availableMemoryPercentage = Utils.getDefaultAvailableMemoryPercentage(applicationContext)
+        private var memoryCache: Lazy<MemoryCache?>? = null
+        private var diskCache: Lazy<DiskCache?>? = null
+        private var availableMemoryPercentage =
+            Utils.getDefaultAvailableMemoryPercentage(applicationContext)
         private var addLastModifiedToFileCacheKey = true
         private var launchInterceptorChainOnMainThread = true
         private var trackWeakReferences = true
@@ -119,7 +120,7 @@ interface SvgaLoader {
          * Coil disk cache instance can be created using [Utils.createDefaultCache].
          */
         fun callFactory(callFactory: Call.Factory) = apply {
-            this.callFactory = callFactory
+            this.callFactory = lazyOf(callFactory)
         }
 
         /**
@@ -136,7 +137,7 @@ interface SvgaLoader {
          * Coil disk cache instance can be created using [Utils.createDefaultCache].
          */
         fun callFactory(initializer: () -> Call.Factory) = apply {
-            this.callFactory = lazyCallFactory(initializer)
+            this.callFactory = lazy(initializer)
         }
 
         /**
@@ -298,7 +299,8 @@ interface SvgaLoader {
          * Create a new [SvgaLoader] instance.
          */
         fun build(): SvgaLoader {
-            val availableMemorySize = Utils.calculateAvailableMemorySize(applicationContext, availableMemoryPercentage)
+            val availableMemorySize =
+                Utils.calculateAvailableMemorySize(applicationContext, availableMemoryPercentage)
 
             val weakMemoryCache = if (trackWeakReferences) {
                 RealWeakMemoryCache(logger)
@@ -306,7 +308,12 @@ interface SvgaLoader {
                 EmptyWeakMemoryCache
             }
             val referenceCounter = RealVideoEntityRefCounter(weakMemoryCache, logger)
-            val strongMemoryCache = StrongMemoryCache(weakMemoryCache, referenceCounter, availableMemorySize.toInt(), logger)
+            val strongMemoryCache = StrongMemoryCache(
+                weakMemoryCache,
+                referenceCounter,
+                availableMemorySize.toInt(),
+                logger
+            )
 
             return RealSvgaLoader(
                 context = applicationContext,
@@ -314,7 +321,11 @@ interface SvgaLoader {
                 referenceCounter = referenceCounter,
                 strongMemoryCache = strongMemoryCache,
                 weakMemoryCache = weakMemoryCache,
-                callFactory = callFactory ?: buildDefaultCallFactory(),
+//                memoryCacheLazy = memoryCache ?: lazy {
+//                    MemoryCache.Builder(applicationContext).build()
+//                },
+                diskCacheLazy = diskCache ?: lazy { SingletonDiskCache.get(applicationContext) },
+                callFactoryLazy = callFactory ?: lazy { OkHttpClient() },
                 eventListenerFactory = eventListenerFactory ?: EventListener.Factory.NONE,
                 componentRegistry = registry ?: ComponentRegistry(),
                 addLastModifiedToFileCacheKey = addLastModifiedToFileCacheKey,

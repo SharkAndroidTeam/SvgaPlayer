@@ -38,7 +38,9 @@ class RealSvgaLoader(
     private val referenceCounter: VideoEntityRefCounter,
     private val strongMemoryCache: StrongMemoryCache,
     private val weakMemoryCache: WeakMemoryCache,
-    callFactory: Call.Factory,
+//    private val memoryCacheLazy: Lazy<MemoryCache?>,
+    private val diskCacheLazy: Lazy<DiskCache?>,
+    private val callFactoryLazy: Lazy<Call.Factory>,
     private val eventListenerFactory: EventListener.Factory,
     componentRegistry: ComponentRegistry,
     addLastModifiedToFileCacheKey: Boolean,
@@ -51,8 +53,8 @@ class RealSvgaLoader(
     private val memoryCacheService =
         MemoryCacheService(referenceCounter, strongMemoryCache, weakMemoryCache)
     private val requestService = RequestService(logger)
-    override val memoryCache = RealMemoryCache(strongMemoryCache, weakMemoryCache, referenceCounter)
-    override val diskCache: DiskCache = SingletonDiskCache.get(context)
+//    override val memoryCache by memoryCacheLazy
+    override val diskCache by diskCacheLazy
     private val systemCallbacks = SystemCallbacks(this, context)
     private val registry = componentRegistry.newBuilder()
         // Mappers
@@ -60,8 +62,8 @@ class RealSvgaLoader(
         .add(FileUriMapper())
         .add(ResourceUriMapper(context))
         // Fetchers
-        .add(HttpUriFetcher(callFactory))
-        .add(HttpUrlFetcher(callFactory))
+        .add(HttpUriFetcher(callFactoryLazy,diskCacheLazy))
+        .add(HttpUrlFetcher(callFactoryLazy,diskCacheLazy))
         .add(FileFetcher(addLastModifiedToFileCacheKey))
         .add(AssetUriFetcher(context))
         .add(ResourceUriFetcher(context))
@@ -71,7 +73,7 @@ class RealSvgaLoader(
 
     private val interceptors = registry.interceptors + EngineInterceptor(
         registry, referenceCounter, strongMemoryCache, memoryCacheService, requestService,
-        systemCallbacks, callFactory, logger
+        systemCallbacks, callFactoryLazy.value, logger
     )
 
     private val isShutdown = AtomicBoolean(false)

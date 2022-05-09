@@ -18,6 +18,7 @@ import com.shark.svgaplayer_base.util.requestManager
 import okhttp3.Cache
 import okio.BufferedSource
 import okio.ByteString.Companion.toByteString
+import java.io.Closeable
 import java.io.File
 
 /** Private utility methods for Coil. */
@@ -160,3 +161,49 @@ internal object SingletonDiskCache {
         }
     }
 }
+
+internal fun String.toNonNegativeInt(defaultValue: Int): Int {
+    val value = toLongOrNull() ?: return defaultValue
+    return when {
+        value > Int.MAX_VALUE -> Int.MAX_VALUE
+        value < 0 -> 0
+        else -> value.toInt()
+    }
+}
+
+
+internal fun DiskCache.Editor.abortQuietly() {
+    try {
+        abort()
+    } catch (_: Exception) {}
+}
+
+private const val STANDARD_MEMORY_MULTIPLIER = 0.2
+private const val LOW_MEMORY_MULTIPLIER = 0.15
+
+/** Return the default percent of the application's total memory to use for the memory cache. */
+internal fun defaultMemoryCacheSizePercent(context: Context): Double {
+    return try {
+        val activityManager: ActivityManager = context.requireSystemService()
+        if (activityManager.isLowRamDevice) LOW_MEMORY_MULTIPLIER else STANDARD_MEMORY_MULTIPLIER
+    } catch (_: Exception) {
+        STANDARD_MEMORY_MULTIPLIER
+    }
+}
+
+private const val DEFAULT_MEMORY_CLASS_MEGABYTES = 256
+
+/** Return a [percent] of the application's total memory in bytes. */
+internal fun calculateMemoryCacheSize(context: Context, percent: Double): Int {
+    val memoryClassMegabytes = try {
+        val activityManager: ActivityManager = context.requireSystemService()
+        val isLargeHeap = (context.applicationInfo.flags and ApplicationInfo.FLAG_LARGE_HEAP) != 0
+        if (isLargeHeap) activityManager.largeMemoryClass else activityManager.memoryClass
+    } catch (_: Exception) {
+        DEFAULT_MEMORY_CLASS_MEGABYTES
+    }
+    return (percent * memoryClassMegabytes * 1024 * 1024).toInt()
+}
+
+
+
