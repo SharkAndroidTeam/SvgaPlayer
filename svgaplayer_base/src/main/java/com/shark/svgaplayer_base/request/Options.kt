@@ -14,7 +14,13 @@ import okhttp3.Headers
 class Options(
     val context: Context,
     val allowInexactSize: Boolean = false,
+
     val headers: Headers = EMPTY_HEADERS,
+
+    /**
+     * A map of custom objects. These are used to attach custom data to a request.
+     */
+    val tags: Tags = Tags.EMPTY,
     val parameters: Parameters = Parameters.EMPTY,
     val memoryCachePolicy: CachePolicy = CachePolicy.ENABLED,
     val diskCachePolicy: CachePolicy = CachePolicy.ENABLED,
@@ -28,46 +34,23 @@ class Options(
      * compute its own.
      */
     val diskCacheKey: String? = null,
-) {
+
+    ) {
     fun copy(
         context: Context = this.context,
         allowInexactSize: Boolean = this.allowInexactSize,
+        size: Size = this.size,
         headers: Headers = this.headers,
+        tags: Tags = this.tags,
         parameters: Parameters = this.parameters,
         memoryCachePolicy: CachePolicy = this.memoryCachePolicy,
         diskCachePolicy: CachePolicy = this.diskCachePolicy,
-        networkCachePolicy: CachePolicy = this.networkCachePolicy
+        networkCachePolicy: CachePolicy = this.networkCachePolicy,
+        diskCacheKey: String? = this.diskCacheKey,
     ) = Options(
-        context, allowInexactSize, headers, parameters, memoryCachePolicy, diskCachePolicy,
-        networkCachePolicy
+        context, allowInexactSize, headers, tags, parameters, memoryCachePolicy, diskCachePolicy,
+        networkCachePolicy, size, diskCacheKey
     )
 
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        return other is Options &&
-                context == other.context &&
-                allowInexactSize == other.allowInexactSize &&
-                headers == other.headers &&
-                parameters == other.parameters &&
-                memoryCachePolicy == other.memoryCachePolicy &&
-                diskCachePolicy == other.diskCachePolicy &&
-                networkCachePolicy == other.networkCachePolicy
-    }
 
-    override fun hashCode(): Int {
-        var result = context.hashCode()
-        result = 31 * result + allowInexactSize.hashCode()
-        result = 31 * result + headers.hashCode()
-        result = 31 * result + parameters.hashCode()
-        result = 31 * result + memoryCachePolicy.hashCode()
-        result = 31 * result + diskCachePolicy.hashCode()
-        result = 31 * result + networkCachePolicy.hashCode()
-        return result
-    }
-
-    override fun toString(): String {
-        return "Options(context=$context, allowInexactSize=$allowInexactSize, headers=$headers, " +
-                "parameters=$parameters, memoryCachePolicy=$memoryCachePolicy, " +
-                "diskCachePolicy=$diskCachePolicy, networkCachePolicy=$networkCachePolicy)"
-    }
 }

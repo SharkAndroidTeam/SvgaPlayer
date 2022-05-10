@@ -26,7 +26,6 @@ import okio.IOException
 import okio.buffer
 import java.net.HttpURLConnection
 
-
 internal class HttpUriFetcher(
     private val url: String,
     private val options: Options,
@@ -35,7 +34,6 @@ internal class HttpUriFetcher(
     private val respectCacheHeaders: Boolean
 ) : Fetcher {
 
-    @OptIn(ExperimentalCoilApi::class)
     override suspend fun fetch(): FetchResult {
         var snapshot = readFromDiskCache()
         try {
@@ -50,7 +48,6 @@ internal class HttpUriFetcher(
                         dataSource = DataSource.DISK
                     )
                 }
-
 
                 // Return the candidate from the cache if it is eligible.
                 if (respectCacheHeaders) {
@@ -129,7 +126,6 @@ internal class HttpUriFetcher(
 
     private val fileSystem get() = diskCache.value!!.fileSystem
 
-    @OptIn(ExperimentalCoilApi::class)
     private fun readFromDiskCache(): DiskCache.Snapshot? {
         return if (options.diskCachePolicy.readEnabled) {
             diskCache.value?.get(diskCacheKey)
@@ -190,12 +186,12 @@ internal class HttpUriFetcher(
 
     private fun newRequest(): Request {
         val request = Request.Builder()
-            .url(url ?: "")
+            .url(url)
             .headers(options.headers)
 
         // Attach all custom tags to this request.
 //        @Suppress("UNCHECKED_CAST")
-//        options.tags.asMap().forEach { request.tag(it.key as Class<Any>, it.value) }
+        options.tags.asMap().forEach { request.tag(it.key as Class<Any>, it.value) }
 
         val diskRead = options.diskCachePolicy.readEnabled
         val networkRead = options.networkCachePolicy.readEnabled

@@ -33,10 +33,14 @@ class FirstFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.svgaImg.post {
-            binding.svgaImg.load("https://media.kaiyinhn.cn/MTY1MjA4Njg1Nzk4OCM2Mjkjc3ZnYQ==.svga")
 
         }
 
+        binding.btn.setOnClickListener {
+            binding.svgaImg.load("https://media.kaiyinhn.cn/MTY1MjA4Njg1Nzk4OCM2Mjkjc3ZnYQ==.svga")
+
+
+        }
     }
 
     override fun onDestroyView() {
