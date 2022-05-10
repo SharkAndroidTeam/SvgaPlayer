@@ -3,6 +3,10 @@
 
 package com.shark.svgaplayer_base.util
 
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.LinkedHashMap
+
 internal typealias MultiMutableList<R, T> = MutableList<Pair<R, T>>
 
 internal typealias MultiList<R, T> = List<Pair<R, T>>
@@ -97,4 +101,27 @@ internal inline fun <K, V, R : Any> Map<K, V>.mapNotNullValues(transform: (Map.E
         }
     }
     return destination
+}
+
+internal fun <K, V> Map<K, V>.toImmutableMap(): Map<K, V> = when (size) {
+    0 -> emptyMap()
+    1 -> entries.first().let { (key, value) -> Collections.singletonMap(key, value) }
+    else -> Collections.unmodifiableMap(LinkedHashMap(this))
+}
+
+internal fun <T> List<T>.toImmutableList(): List<T> = when (size) {
+    0 -> emptyList()
+    1 -> Collections.singletonList(first())
+    else -> Collections.unmodifiableList(ArrayList(this))
+}
+
+/**
+ * Return the first non-null value returned by [transform].
+ * Generate an index-based loop that doesn't use an [Iterator].
+ */
+internal inline fun <R, T> List<R>.firstNotNullOfOrNullIndices(transform: (R) -> T?): T? {
+    for (i in indices) {
+        transform(get(i))?.let { return it }
+    }
+    return null
 }

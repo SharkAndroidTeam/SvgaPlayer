@@ -3,6 +3,7 @@ package com.shark.svgaplayer_base.request
 import com.shark.svgaplayer_base.decode.DataSource
 import com.shark.svgaplayer_base.memory.MemoryCache
 import com.opensource.svgaplayer.SVGADrawable
+import com.shark.svgaplayer_base.annotation.ExperimentalCoilApi
 
 /**
  * Represents the result of an image request.
@@ -28,6 +29,7 @@ sealed class SVGAResult {
         val dataSource: DataSource
     )
 }
+
 
 /**
  * Indicates that the request completed successfully.

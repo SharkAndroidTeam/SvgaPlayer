@@ -5,7 +5,9 @@ import android.net.Uri
 import androidx.core.net.toFile
 import com.shark.svgaplayer_base.fetch.AssetUriFetcher
 import com.shark.svgaplayer_base.map.Mapper
+import com.shark.svgaplayer_base.request.Options
 import com.shark.svgaplayer_base.util.firstPathSegment
+import com.shark.svgaplayer_base.util.isAssetUri
 import java.io.File
 
 /**
@@ -16,10 +18,15 @@ import java.io.File
  */
 internal class FileUriMapper : Mapper<Uri, File> {
 
-    override fun handles(data: Uri): Boolean {
-        return data.scheme == ContentResolver.SCHEME_FILE &&
-                data.firstPathSegment.let { it != null && it != AssetUriFetcher.ASSET_FILE_PATH_ROOT }
+
+    override fun map(data: Uri, options: Options): File? {
+        if (!isApplicable(data)) return null
+        return  data.toFile()
     }
 
-    override fun map(data: Uri) = data.toFile()
+    private fun isApplicable(data: Uri): Boolean {
+        return !isAssetUri(data) &&
+                data.scheme.let { it == null || it == ContentResolver.SCHEME_FILE } &&
+                data.path.orEmpty().startsWith('/') && data.firstPathSegment != null
+    }
 }

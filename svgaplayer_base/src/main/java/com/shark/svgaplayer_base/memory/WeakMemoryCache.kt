@@ -1,19 +1,14 @@
 package com.shark.svgaplayer_base.memory
 
-import android.content.ComponentCallbacks2
 import android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW
 import android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
-import android.os.Build.VERSION.SDK_INT
-import android.util.Log
+import androidx.annotation.VisibleForTesting
 import com.opensource.svgaplayer.SVGAVideoEntity
-import java.lang.ref.WeakReference
-
 import com.shark.svgaplayer_base.memory.MemoryCache.Key
-import com.shark.svgaplayer_base.memory.RealMemoryCache.Value
-import com.shark.svgaplayer_base.util.*
-import com.shark.svgaplayer_base.util.firstNotNullIndices
+import com.shark.svgaplayer_base.util.firstNotNullOfOrNullIndices
 import com.shark.svgaplayer_base.util.identityHashCode
 import com.shark.svgaplayer_base.util.removeIfIndices
+import java.lang.ref.WeakReference
 
 /**
  * An in-memory cache that holds weak references to [SVGAVideoEntity]s.
@@ -23,33 +18,32 @@ import com.shark.svgaplayer_base.util.removeIfIndices
  */
 interface WeakMemoryCache {
 
-    /** Get the value associated with [key]. */
-    fun get(key: Key): Value?
-
-    /** Set the value associated with [key]. */
-    fun set(key: Key, videoEntity: SVGAVideoEntity, isSampled: Boolean, size: Int)
-
-    /** Remove the value referenced by [key] from this cache. */
-    fun remove(key: Key): Boolean
-
     /** Remove [videoEntity] from this cache. */
     fun remove(videoEntity: SVGAVideoEntity): Boolean
 
-    /** Remove all values from this cache. */
+    val keys: Set<Key>
+
+    fun get(key: Key): MemoryCache.Value?
+
+    fun set(key: Key, videoEntity: SVGAVideoEntity, extras: Map<String, Any>, size: Int)
+
+    fun remove(key: Key): Boolean
+
     fun clearMemory()
 
-    /** @see ComponentCallbacks2.onTrimMemory */
     fun trimMemory(level: Int)
 }
 
 /** A [WeakMemoryCache] implementation that holds no references. */
-internal object EmptyWeakMemoryCache : WeakMemoryCache {
+internal class EmptyWeakMemoryCache : WeakMemoryCache {
 
-    override fun get(key: Key): Value? = null
+    override fun get(key: Key): MemoryCache.Value? = null
 
-    override fun set(key: Key, videoEntity: SVGAVideoEntity, isSampled: Boolean, size: Int) {}
+    override fun set(key: Key, videoEntity: SVGAVideoEntity, extras: Map<String, Any>, size: Int) {}
 
     override fun remove(key: Key) = false
+
+    override val keys get() = emptySet<Key>()
 
     override fun remove(videoEntity: SVGAVideoEntity) = false
 
@@ -59,31 +53,35 @@ internal object EmptyWeakMemoryCache : WeakMemoryCache {
 }
 
 /** A [WeakMemoryCache] implementation backed by a [HashMap]. */
-internal class RealWeakMemoryCache(private val logger: Logger?) : WeakMemoryCache {
-    internal val cache = hashMapOf<Key, ArrayList<WeakValue>>()
-    internal var operationsSinceCleanUp = 0
+internal class RealWeakMemoryCache: WeakMemoryCache {
+
+    @VisibleForTesting
+    internal val cache = LinkedHashMap<Key, ArrayList<InternalValue>>()
+    private var operationsSinceCleanUp = 0
+
+    override val keys @Synchronized get() = cache.keys.toSet()
+
 
     @Synchronized
-    override fun get(key: Key): Value? {
+    override fun get(key: Key): MemoryCache.Value? {
         val values = cache[key] ?: return null
 
         // Find the first bitmap that hasn't been collected.
-        val strongValue = values.firstNotNullIndices { value ->
-            value.entity.get()?.let { StrongValue(it, value.isSampled) }
+        val value = values.firstNotNullOfOrNullIndices { value ->
+            value.entity.get()?.let { MemoryCache.Value(it, value.extras) }
         }
 
         cleanUpIfNecessary()
-        return strongValue
+        return value
     }
 
-    @Synchronized
-    override fun set(key: Key, videoEntity: SVGAVideoEntity, isSampled: Boolean, size: Int) {
+    override fun set(key: Key, videoEntity: SVGAVideoEntity, extras: Map<String, Any>, size: Int) {
         val values = cache.getOrPut(key) { arrayListOf() }
 
         // Insert the value into the list sorted descending by size.
         run {
             val identityHashCode = videoEntity.identityHashCode
-            val newValue = WeakValue(identityHashCode, WeakReference(videoEntity), isSampled, size)
+            val newValue = InternalValue(identityHashCode, WeakReference(videoEntity), extras, size)
             for (index in values.indices) {
                 val value = values[index]
                 if (size >= value.size) {
@@ -127,30 +125,24 @@ internal class RealWeakMemoryCache(private val logger: Logger?) : WeakMemoryCach
         return removed
     }
 
-    /** Remove all values from this cache. */
     @Synchronized
     override fun clearMemory() {
-        logger?.log(TAG, Log.VERBOSE) { "clearMemory" }
         operationsSinceCleanUp = 0
         cache.clear()
     }
-
-    /** @see ComponentCallbacks2.onTrimMemory */
     @Synchronized
     override fun trimMemory(level: Int) {
-        logger?.log(TAG, Log.VERBOSE) { "trimMemory, level=$level" }
         if (level >= TRIM_MEMORY_RUNNING_LOW && level != TRIM_MEMORY_UI_HIDDEN) {
             cleanUp()
         }
     }
+
 
     private fun cleanUpIfNecessary() {
         if (operationsSinceCleanUp++ >= CLEAN_UP_INTERVAL) {
             cleanUp()
         }
     }
-
-    /** Remove any dereferenced SvgaVideoEntities from the cache. */
     internal fun cleanUp() {
         operationsSinceCleanUp = 0
 
@@ -166,11 +158,7 @@ internal class RealWeakMemoryCache(private val logger: Logger?) : WeakMemoryCach
                 }
             } else {
                 // Iterate over the list of values and delete individual entries that have been collected.
-                if (SDK_INT >= 24) {
-                    list.removeIf { it.entity.get() == null }
-                } else {
-                    list.removeIfIndices { it.entity.get() == null }
-                }
+                list.removeIfIndices { it.entity.get() == null }
 
                 if (list.isEmpty()) {
                     iterator.remove()
@@ -179,20 +167,16 @@ internal class RealWeakMemoryCache(private val logger: Logger?) : WeakMemoryCach
         }
     }
 
-    internal class WeakValue(
+    @VisibleForTesting
+    internal class InternalValue(
         val identityHashCode: Int,
         val entity: WeakReference<SVGAVideoEntity>,
-        val isSampled: Boolean,
+        val extras: Map<String, Any>,
         val size: Int
     )
 
-    private class StrongValue(
-        override val videoEntity: SVGAVideoEntity,
-        override val isSampled: Boolean
-    ) : Value
-
     companion object {
-        private const val TAG = "RealWeakMemoryCache"
         private const val CLEAN_UP_INTERVAL = 10
     }
+
 }

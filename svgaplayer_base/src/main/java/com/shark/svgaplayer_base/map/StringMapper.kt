@@ -2,6 +2,7 @@ package com.shark.svgaplayer_base.map
 
 import android.net.Uri
 import androidx.core.net.toUri
+import com.shark.svgaplayer_base.request.Options
 
 /**
  * @Author svenj
@@ -10,5 +11,5 @@ import androidx.core.net.toUri
  */
 internal class StringMapper : Mapper<String, Uri> {
 
-    override fun map(data: String) = data.toUri()
+    override fun map(data: String, options: Options) = data.toUri()
 }

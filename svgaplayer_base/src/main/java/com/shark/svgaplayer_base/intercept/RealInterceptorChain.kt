@@ -8,12 +8,11 @@ import com.shark.svgaplayer_base.size.Size
 
 internal class RealInterceptorChain(
     val initialRequest: SVGARequest,
-    val requestType: Int,
     val interceptors: List<Interceptor>,
     val index: Int,
     override val request: SVGARequest,
     override val size: Size,
-    val eventListener: EventListener
+    val eventListener: EventListener,
 ) : Interceptor.Chain {
 
     override fun withSize(size: Size) = copy(size = size)
@@ -49,5 +48,5 @@ internal class RealInterceptorChain(
         index: Int = this.index,
         request: SVGARequest = this.request,
         size: Size = this.size
-    ) = RealInterceptorChain(initialRequest, requestType, interceptors, index, request, size, eventListener)
+    ) = RealInterceptorChain(initialRequest, interceptors, index, request, size, eventListener)
 }

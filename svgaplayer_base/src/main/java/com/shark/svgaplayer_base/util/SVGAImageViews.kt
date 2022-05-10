@@ -83,12 +83,12 @@ inline fun SVGAImageView.loadAny(
 /**
  * Cancel any in progress requests and clear all resources associated with this [SVGAImageView].
  */
-fun SVGAImageView.clearRequests() {
-    Utils.clear(this)
-}
+//fun SVGAImageView.clearRequests() {
+//    Utils.clear(this)
+//}
 
 /**
  * Get the metadata of the successful request attached to this view.
  */
-val SVGAImageView.metadata: SVGAResult.Metadata?
-    @JvmName("metadata") get() = Utils.metadata(this)
+//val SVGAImageView.metadata: SVGAResult.Metadata?
+//    @JvmName("metadata") get() = Utils.metadata(this)

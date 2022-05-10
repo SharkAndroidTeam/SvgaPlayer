@@ -2,30 +2,36 @@ package com.shark.svgaplayer_base.memory
 
 import com.shark.svgaplayer_base.recycle.VideoEntityRefCounter
 import com.opensource.svgaplayer.SVGAVideoEntity
+import com.shark.svgaplayer_base.util.toImmutableMap
 
-class RealMemoryCache(
+internal class RealMemoryCache(
     private val strongMemoryCache: StrongMemoryCache,
-    private val weakMemoryCache: WeakMemoryCache,
-    private val referenceCounter: VideoEntityRefCounter
+    private val weakMemoryCache: WeakMemoryCache
 ) : MemoryCache {
 
     override val size get() = strongMemoryCache.size
 
     override val maxSize get() = strongMemoryCache.maxSize
 
-    override fun get(key: MemoryCache.Key): SVGAVideoEntity? {
-        val value = strongMemoryCache.get(key) ?: weakMemoryCache.get(key)
-        return value?.videoEntity?.also { referenceCounter.setValid(it, false) }
+    override val keys get() = strongMemoryCache.keys + weakMemoryCache.keys
+
+    override fun get(key: MemoryCache.Key): MemoryCache.Value? {
+        return strongMemoryCache.get(key) ?: weakMemoryCache.get(key)
     }
 
-    override fun set(key: MemoryCache.Key, entity: SVGAVideoEntity) {
-        referenceCounter.setValid(entity, false)
-        strongMemoryCache.set(key, entity, false)
-        weakMemoryCache.remove(key) // Clear any existing weak values.
+    override fun set(key: MemoryCache.Key, value: MemoryCache.Value) {
+        // Ensure that stored keys and values are immutable.
+        strongMemoryCache.set(
+            key = key.copy(extras = key.extras.toImmutableMap()),
+            videoEntity = value.entity,
+            extras = value.extras.toImmutableMap()
+        )
+        // weakMemoryCache.set() is called by strongMemoryCache when
+        // a value is evicted from the strong reference cache.
     }
 
     override fun remove(key: MemoryCache.Key): Boolean {
-        // Do not short circuit.
+        // Do not short circuit. There is a regression test for this.
         val removedStrong = strongMemoryCache.remove(key)
         val removedWeak = weakMemoryCache.remove(key)
         return removedStrong || removedWeak
@@ -36,8 +42,9 @@ class RealMemoryCache(
         weakMemoryCache.clearMemory()
     }
 
-    interface Value {
-        val videoEntity: SVGAVideoEntity
-        val isSampled: Boolean
+    override fun trimMemory(level: Int) {
+        strongMemoryCache.trimMemory(level)
+        weakMemoryCache.trimMemory(level)
     }
+
 }

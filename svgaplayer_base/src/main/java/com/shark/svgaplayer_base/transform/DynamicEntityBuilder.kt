@@ -7,11 +7,11 @@ import android.text.BoringLayout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.Log
-import com.shark.svgaplayer_base.decode.Options
-import com.shark.svgaplayer_base.fetch.HttpFetcher
+import com.shark.svgaplayer_base.request.Options
 import com.shark.svgaplayer_base.network.HttpException
 import com.shark.svgaplayer_base.util.await
 import com.opensource.svgaplayer.SVGADynamicEntity
+import com.shark.svgaplayer_base.fetch.HttpUriFetcher
 import okhttp3.CacheControl
 import okhttp3.Call
 import okhttp3.Request
@@ -162,11 +162,11 @@ class DynamicEntityBuilder {
             networkRead && !diskRead -> if (options.diskCachePolicy.writeEnabled) {
                 request.cacheControl(CacheControl.FORCE_NETWORK)
             } else {
-                request.cacheControl(HttpFetcher.CACHE_CONTROL_FORCE_NETWORK_NO_CACHE)
+                request.cacheControl(HttpUriFetcher.CACHE_CONTROL_FORCE_NETWORK_NO_CACHE)
             }
             !networkRead && !diskRead -> {
                 // This causes the request to fail with a 504 Unsatisfiable Request.
-                request.cacheControl(HttpFetcher.CACHE_CONTROL_NO_NETWORK_NO_CACHE)
+                request.cacheControl(HttpUriFetcher.CACHE_CONTROL_NO_NETWORK_NO_CACHE)
             }
         }
         return try {

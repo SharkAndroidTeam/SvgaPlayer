@@ -1,15 +1,15 @@
 package com.shark.svgaplayer_base.decode
 
-import android.content.Context
-import android.util.Log
-import com.shark.svgaplayer_base.size.PixelSize
-import com.shark.svgaplayer_base.size.Size
-import com.shark.svgaplayer_base.util.*
-import com.shark.svgaplayer_base.util.Utils
-import com.shark.svgaplayer_base.util.isSVGAUnzipFile
-import com.shark.svgaplayer_base.util.makeSureExist
 import com.opensource.svgaplayer.SVGAVideoEntity
 import com.opensource.svgaplayer.proto.MovieEntity
+import com.shark.svgaplayer_base.SvgaLoader
+import com.shark.svgaplayer_base.fetch.SourceResult
+import com.shark.svgaplayer_base.request.Options
+import com.shark.svgaplayer_base.size.Size
+import com.shark.svgaplayer_base.util.*
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import okio.*
 import org.json.JSONObject
 import java.io.*
@@ -22,21 +22,21 @@ import java.util.zip.ZipInputStream
  * @Email svenjzm@gmail.com
  */
 @Suppress("RECEIVER_NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
-class SVGAVideoEntityDecoder(private val context: Context) : Decoder {
+class SVGAVideoEntityDecoder(
+    private val source: Source,
+    private val options: Options,
+    private val parallelismLock: Semaphore = Semaphore(Int.MAX_VALUE)
+) : Decoder {
 
-    override fun handles(source: BufferedSource, mimeType: String?) = true
-
-    override suspend fun decode(
-        source: BufferedSource,
-        key: String,
-        size: Size,
-        options: Options
-    ) = withInterruptibleSource(source) { interruptibleSource ->
-        decodeInterruptible(interruptibleSource, key, size, options)
+    override suspend fun decode() = parallelismLock.withPermit {
+        runInterruptible {
+            decodeInterruptible(source, options.diskCacheKey ?: "")
+        }
     }
 
+
     private fun createCache(key: String): File {
-        return File(Utils.createDefaultSVGAUnzipDir(context).path, key)
+        return File(Utils.createDefaultSVGAUnzipDir(options.context).path, key)
     }
 
     private fun inflate(byteArray: ByteArray): ByteArray {
@@ -60,22 +60,20 @@ class SVGAVideoEntityDecoder(private val context: Context) : Decoder {
     private fun decodeInterruptible(
         source: Source,
         key: String,
-        size: Size,
-        options: Options
     ): DecodeResult {
         val safeSource = ExceptionCatchingSource(source)
         val safeBufferedSource = safeSource.buffer()
         val cacheDir = createCache(key)
 
-        val (frameWidth, frameHeight) = when (size) {
-            is PixelSize -> {
-                size
-            }
-            else -> {
-                PixelSize(0, 0)
-            }
-        }
-        Log.i("Decoder", "target size: [$frameWidth, $frameHeight]")
+//        val (frameWidth, frameHeight) = when (size) {
+//            is PixelSize -> {
+//                size
+//            }
+//            else -> {
+//                PixelSize(0, 0)
+//            }
+//        }
+//        Log.i("Decoder", "target size: [$frameWidth, $frameHeight]")
 
         val decodeWidth = -1
         val decodeHeight = -1
@@ -212,5 +210,30 @@ class SVGAVideoEntityDecoder(private val context: Context) : Decoder {
             }
         }
     }
+
+
+    class Factory @JvmOverloads constructor(
+        maxParallelism: Int = DEFAULT_MAX_PARALLELISM
+    ) : Decoder.Factory {
+
+        private val parallelismLock = Semaphore(maxParallelism)
+
+        override fun create(
+            result: SourceResult,
+            options: Options,
+            imageLoader: SvgaLoader
+        ): Decoder {
+            return SVGAVideoEntityDecoder(result.source, options, parallelismLock)
+        }
+
+        override fun equals(other: Any?) = other is Factory
+
+        override fun hashCode() = javaClass.hashCode()
+    }
+
+    internal companion object {
+        internal const val DEFAULT_MAX_PARALLELISM = 4
+    }
+
 
 }

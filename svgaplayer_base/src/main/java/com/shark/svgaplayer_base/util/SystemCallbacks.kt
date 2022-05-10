@@ -6,17 +6,26 @@ import android.content.Context
 import android.content.res.Configuration
 import android.util.Log
 import com.shark.svgaplayer_base.RealSvgaLoader
+import com.shark.svgaplayer_base.network.EmptyNetworkObserver
 import com.shark.svgaplayer_base.network.NetworkObserver
 import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class SystemCallbacks(
     imageLoader: RealSvgaLoader,
-    private val context: Context
+    private val context: Context,
+    isNetworkObserverEnabled: Boolean
 ) : ComponentCallbacks2, NetworkObserver.Listener {
 
     internal val imageLoader = WeakReference(imageLoader)
-    private val networkObserver = NetworkObserver(context, this, imageLoader.logger)
+
+    private val networkObserver = if (isNetworkObserverEnabled) {
+        NetworkObserver(context, this, imageLoader.logger)
+    } else {
+        EmptyNetworkObserver()
+    }
+
+
 
     @Volatile
     private var _isOnline = networkObserver.isOnline

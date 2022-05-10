@@ -1,8 +1,7 @@
-package com.shark.svgaplayer_base.decode
+package com.shark.svgaplayer_base.request
 
 import android.content.Context
-import com.shark.svgaplayer_base.request.CachePolicy
-import com.shark.svgaplayer_base.request.Parameters
+import com.shark.svgaplayer_base.size.Size
 import com.shark.svgaplayer_base.util.EMPTY_HEADERS
 import okhttp3.Headers
 
@@ -19,7 +18,16 @@ class Options(
     val parameters: Parameters = Parameters.EMPTY,
     val memoryCachePolicy: CachePolicy = CachePolicy.ENABLED,
     val diskCachePolicy: CachePolicy = CachePolicy.ENABLED,
-    val networkCachePolicy: CachePolicy = CachePolicy.ENABLED
+    val networkCachePolicy: CachePolicy = CachePolicy.ENABLED,
+    /**
+     * The requested output size for the image request.
+     */
+    val size: Size = Size.ORIGINAL,
+    /**
+     * The cache key to use when persisting images to the disk cache or 'null' if the component can
+     * compute its own.
+     */
+    val diskCacheKey: String? = null,
 ) {
     fun copy(
         context: Context = this.context,

@@ -19,16 +19,14 @@ import android.webkit.MimeTypeMap
 import androidx.core.view.ViewCompat
 import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat
 import com.shark.svgaplayer_base.memory.MemoryCache
-import com.shark.svgaplayer_base.request.TargetDelegate
-import com.shark.svgaplayer_base.request.ViewTargetRequestManager
 import com.shark.svgaplayer_base.recycle.VideoEntityRefCounter
-import com.shark.svgaplayer_base.request.Parameters
-import com.shark.svgaplayer_base.request.SVGAResult
 import com.shark.svgaplayer_base.size.Size
 import com.shark.svgaplayer_base.target.ViewTarget
 import com.shark.svgaplayer_base.R
 import com.opensource.svgaplayer.SVGADrawable
 import com.opensource.svgaplayer.SVGAVideoEntity
+import com.shark.svgaplayer_base.request.*
+import com.shark.svgaplayer_base.request.ViewTargetRequestManager
 import kotlinx.coroutines.Job
 import okhttp3.Call
 import okhttp3.Headers
@@ -58,7 +56,7 @@ internal val View.requestManager: ViewTargetRequestManager
                 (getTag(R.id.svga_request_manager) as? ViewTargetRequestManager)
                     ?.let { return@synchronized it }
 
-                ViewTargetRequestManager().apply {
+                ViewTargetRequestManager(this).apply {
                     addOnAttachStateChangeListener(this)
                     setTag(R.id.svga_request_manager, this)
                 }
@@ -123,6 +121,8 @@ internal val NULL_COLOR_SPACE: ColorSpace? = null
 
 internal val EMPTY_HEADERS = Headers.Builder().build()
 
+internal fun Tags?.orEmpty() = this ?: Tags.EMPTY
+
 internal fun Headers?.orEmpty() = this ?: EMPTY_HEADERS
 
 internal fun Parameters?.orEmpty() = this ?: Parameters.EMPTY
@@ -147,23 +147,6 @@ internal inline fun AtomicInteger.loop(action: (Int) -> Unit) {
 
 internal inline val CoroutineContext.job: Job get() = get(Job)!!
 
-internal var TargetDelegate.metadata: SVGAResult.Metadata?
-    get() = (target as? ViewTarget<*>)?.view?.requestManager?.metadata
-    set(value) {
-        (target as? ViewTarget<*>)?.view?.requestManager?.metadata = value
-    }
-
-internal inline operator fun MemoryCache.Key.Companion.invoke(
-    base: String,
-    size: Size?,
-    parameters: Parameters
-): MemoryCache.Key {
-    return MemoryCache.Key.Complex(
-        base = base,
-        size = size,
-        parameters = parameters.cacheKeys()
-    )
-}
 
 internal inline fun VideoEntityRefCounter.decrement(entity: SVGAVideoEntity?) {
     if (entity != null) decrement(entity)

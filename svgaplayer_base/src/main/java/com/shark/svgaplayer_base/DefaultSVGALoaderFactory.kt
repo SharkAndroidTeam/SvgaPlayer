@@ -17,7 +17,6 @@ import java.io.File
 class DefaultSVGALoaderFactory(private val context: Context) : SVGALoaderFactory {
     override fun newSvgaLoader(): SvgaLoader {
         return SvgaLoader.Builder(context)
-                .availableMemoryPercentage(0.5)
                 .okHttpClient {
                     // Create a disk cache with "unlimited" size. Don't do this in production.
                     // To create the an optimized Coil disk cache, use CoilUtils.createDefaultCache(context).

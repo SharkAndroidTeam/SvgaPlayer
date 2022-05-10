@@ -2,6 +2,9 @@ package com.shark.svgaplayer_base
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.drawable.Drawable
+import androidx.annotation.DrawableRes
 import androidx.annotation.FloatRange
 import com.shark.svgaplayer_base.disk.DiskCache
 import com.shark.svgaplayer_base.memory.EmptyWeakMemoryCache
@@ -37,9 +40,14 @@ interface SvgaLoader {
     val defaults: DefaultRequestOptions
 
     /**
+     * The components used to fulfil image requests.
+     */
+    val components: ComponentRegistry
+
+    /**
      * An in-memory cache of recently loaded images.
      */
-//    val memoryCache: MemoryCache?
+    val memoryCache: MemoryCache?
 
     /**
      * An on-disk cache of previously loaded images.
@@ -75,49 +83,65 @@ interface SvgaLoader {
      */
     fun shutdown()
 
-    class Builder(context: Context) {
-        private val applicationContext = context.applicationContext
+    fun newBuilder(): Builder
 
-        private var callFactory: Lazy<Call.Factory>? = null
-        private var eventListenerFactory: EventListener.Factory? = null
-        private var registry: ComponentRegistry? = null
-        private var logger: Logger? = DefaultLogger()
-        private var defaults = DefaultRequestOptions.INSTANCE
-        private var memoryCache: Lazy<MemoryCache?>? = null
-        private var diskCache: Lazy<DiskCache?>? = null
-        private var availableMemoryPercentage =
-            Utils.getDefaultAvailableMemoryPercentage(applicationContext)
-        private var addLastModifiedToFileCacheKey = true
-        private var launchInterceptorChainOnMainThread = true
-        private var trackWeakReferences = true
+    class Builder {
+
+        private val applicationContext: Context
+        private var defaults: DefaultRequestOptions
+        private var memoryCache: Lazy<MemoryCache?>?
+        private var diskCache: Lazy<DiskCache?>?
+        private var callFactory: Lazy<Call.Factory>?
+        private var eventListenerFactory: EventListener.Factory?
+        private var componentRegistry: ComponentRegistry?
+        private var options: SVGALoaderOptions
+        private var logger: Logger?
+
+        constructor(context: Context) {
+            applicationContext = context.applicationContext
+            defaults = DEFAULT_REQUEST_OPTIONS
+            memoryCache = null
+            diskCache = null
+            callFactory = null
+            eventListenerFactory = null
+            componentRegistry = null
+            options = SVGALoaderOptions()
+            logger = null
+        }
+
+        internal constructor(imageLoader: RealSvgaLoader) {
+            applicationContext = imageLoader.context.applicationContext
+            defaults = imageLoader.defaults
+            memoryCache = imageLoader.memoryCacheLazy
+            diskCache = imageLoader.diskCacheLazy
+            callFactory = imageLoader.callFactoryLazy
+            eventListenerFactory = imageLoader.eventListenerFactory
+            componentRegistry = imageLoader.componentRegistry
+            options = imageLoader.options
+            logger = imageLoader.logger
+        }
 
         /**
          * Set the [OkHttpClient] used for network requests.
          *
          * This is a convenience function for calling `callFactory(Call.Factory)`.
-         *
-         * NOTE: You must set [OkHttpClient.cache] to enable disk caching. A default
-         * Coil disk cache instance can be created using [Utils.createDefaultCache].
          */
         fun okHttpClient(okHttpClient: OkHttpClient) = callFactory(okHttpClient)
 
         /**
          * Set a lazy callback to create the [OkHttpClient] used for network requests.
          *
-         * This is a convenience function for calling `callFactory(() -> Call.Factory)`.
+         * This allows lazy creation of the [OkHttpClient] on a background thread.
+         * [initializer] is guaranteed to be called at most once.
          *
-         * NOTE: You must set [OkHttpClient.cache] to enable disk caching. A default
-         * Coil disk cache instance can be created using [Utils.createDefaultCache].
+         * Prefer using this instead of `okHttpClient(OkHttpClient)`.
+         *
+         * This is a convenience function for calling `callFactory(() -> Call.Factory)`.
          */
         fun okHttpClient(initializer: () -> OkHttpClient) = callFactory(initializer)
 
         /**
          * Set the [Call.Factory] used for network requests.
-         *
-         * Calling [okHttpClient] automatically sets this value.
-         *
-         * NOTE: You must set [OkHttpClient.cache] to enable disk caching. A default
-         * Coil disk cache instance can be created using [Utils.createDefaultCache].
          */
         fun callFactory(callFactory: Call.Factory) = apply {
             this.callFactory = lazyOf(callFactory)
@@ -130,11 +154,6 @@ interface SvgaLoader {
          * [initializer] is guaranteed to be called at most once.
          *
          * Prefer using this instead of `callFactory(Call.Factory)`.
-         *
-         * Calling [okHttpClient] automatically sets this value.
-         *
-         * NOTE: You must set [OkHttpClient.cache] to enable disk caching. A default
-         * Coil disk cache instance can be created using [Utils.createDefaultCache].
          */
         fun callFactory(initializer: () -> Call.Factory) = apply {
             this.callFactory = lazy(initializer)
@@ -144,44 +163,69 @@ interface SvgaLoader {
          * Build and set the [ComponentRegistry].
          */
         @JvmSynthetic
-        inline fun componentRegistry(
+        inline fun components(
             builder: ComponentRegistry.Builder.() -> Unit
-        ) = componentRegistry(ComponentRegistry.Builder().apply(builder).build())
+        ) = components(ComponentRegistry.Builder().apply(builder).build())
 
         /**
          * Set the [ComponentRegistry].
          */
-        fun componentRegistry(registry: ComponentRegistry) = apply {
-            this.registry = registry
+        fun components(components: ComponentRegistry) = apply {
+            this.componentRegistry = components
         }
 
         /**
-         * Set the percentage of available memory to devote to this [SvgaLoader]'s memory cache and bitmap pool.
-         *
-         * Setting this to 0 disables memory caching and bitmap pooling.
-         *
-         * Default: [Utils.getDefaultAvailableMemoryPercentage]
+         * Set the [MemoryCache].
          */
-        fun availableMemoryPercentage(@FloatRange(from = 0.0, to = 1.0) percent: Double) = apply {
-            require(percent in 0.0..1.0) { "Percent must be in the range [0.0, 1.0]." }
-            this.availableMemoryPercentage = percent
+        fun memoryCache(memoryCache: MemoryCache?) = apply {
+            this.memoryCache = lazyOf(memoryCache)
         }
 
         /**
-         * The default [CoroutineDispatcher] to run image requests on.
+         * Set a lazy callback to create the [MemoryCache].
          *
-         * Default: [Dispatchers.IO]
+         * Prefer using this instead of `memoryCache(MemoryCache)`.
          */
-        fun dispatcher(dispatcher: CoroutineDispatcher) = apply {
-            this.defaults = this.defaults.copy(dispatcher = dispatcher)
+        fun memoryCache(initializer: () -> MemoryCache?) = apply {
+            this.memoryCache = lazy(initializer)
+        }
+
+        /**
+         * Set the [DiskCache].
+         *
+         * NOTE: By default, [ImageLoader]s share the same disk cache instance. This is necessary
+         * as having multiple disk cache instances active in the same directory at the same time
+         * can corrupt the disk cache.
+         *
+         * @see DiskCache.directory
+         */
+        fun diskCache(diskCache: DiskCache?) = apply {
+            this.diskCache = lazyOf(diskCache)
+        }
+
+        /**
+         * Set a lazy callback to create the [DiskCache].
+         *
+         * Prefer using this instead of `diskCache(DiskCache)`.
+         *
+         * NOTE: By default, [ImageLoader]s share the same disk cache instance. This is necessary
+         * as having multiple disk cache instances active in the same directory at the same time
+         * can corrupt the disk cache.
+         *
+         * @see DiskCache.directory
+         */
+        fun diskCache(initializer: () -> DiskCache?) = apply {
+            this.diskCache = lazy(initializer)
         }
 
         /**
          * Allow the use of [Bitmap.Config.HARDWARE].
          *
-         * If false, any use of [Bitmap.Config.HARDWARE] will be treated as [Bitmap.Config.ARGB_8888].
+         * If false, any use of [Bitmap.Config.HARDWARE] will be treated as
+         * [Bitmap.Config.ARGB_8888].
          *
-         * NOTE: Setting this to false this will reduce performance on API 26 and above. Only disable if necessary.
+         * NOTE: Setting this to false this will reduce performance on API 26 and above. Only
+         * disable this if necessary.
          *
          * Default: true
          */
@@ -189,69 +233,77 @@ interface SvgaLoader {
             this.defaults = this.defaults.copy(allowHardware = enable)
         }
 
+
         /**
-         * Enables adding [File.lastModified] to the memory cache key when loading an image from a [File].
+         * Enables adding [File.lastModified] to the memory cache key when loading an image from a
+         * [File].
          *
-         * This allows subsequent requests that load the same file to miss the memory cache if the file has been updated.
-         * However, if the memory cache check occurs on the main thread (see [launchInterceptorChainOnMainThread])
-         * calling [File.lastModified] will cause a strict mode violation.
+         * This allows subsequent requests that load the same file to miss the memory cache if the
+         * file has been updated. However, if the memory cache check occurs on the main thread
+         * (see [interceptorDispatcher]) calling [File.lastModified] will cause a strict mode
+         * violation.
          *
          * Default: true
          */
         fun addLastModifiedToFileCacheKey(enable: Boolean) = apply {
-            this.addLastModifiedToFileCacheKey = enable
+            this.options = this.options.copy(addLastModifiedToFileCacheKey = enable)
         }
 
         /**
-         * Enables launching the [Interceptor] chain on the main thread.
+         * Enables short circuiting network requests if the device is offline.
          *
-         * If true, the [Interceptor] chain will be launched from [MainCoroutineDispatcher.immediate]. This allows
-         * the [ImageLoader] to check its memory cache and return a cached value synchronously if the request is
-         * started from the main thread. However, [Mapper.map] and [Fetcher.key] operations will be executed on the
-         * main thread as well, which has a performance cost.
+         * If true, reading from the network will automatically be disabled if the device is
+         * offline. If a cached response is unavailable the request will fail with a
+         * '504 Unsatisfiable Request' response.
          *
-         * If false, the [Interceptor] chain will be launched from the request's [SVGARequest.dispatcher].
-         * This will result in better UI performance, but values from the memory cache will not be resolved
-         * synchronously.
-         *
-         * The actual fetch + decode process always occurs on [SVGARequest.dispatcher] and is unaffected by this flag.
-         *
-         * It's worth noting that [Interceptor]s can also control which [CoroutineDispatcher] the
-         * memory cache is checked on by calling [Interceptor.Chain.proceed] inside a [withContext] block.
-         * Therefore if you set [launchInterceptorChainOnMainThread] to true, you can control which [SVGARequest]s
-         * check the memory cache synchronously at runtime.
+         * If false, the image loader will attempt a network request even if the device is offline.
          *
          * Default: true
          */
-        fun launchInterceptorChainOnMainThread(enable: Boolean) = apply {
-            this.launchInterceptorChainOnMainThread = enable
+        fun networkObserverEnabled(enable: Boolean) = apply {
+            this.options = this.options.copy(networkObserverEnabled = enable)
         }
 
         /**
-         * Enables weak reference tracking of loaded images.
-         *
-         * This allows the image loader to hold weak references to loaded images.
-         * This ensures that if an image is still in memory it will be returned from the memory cache.
+         * Enables support for network cache headers. If enabled, this image loader will respect the
+         * cache headers returned by network responses when deciding if an image can be stored or
+         * served from the disk cache. If disabled, images will always be served from the disk cache
+         * (if present) and will only be evicted to stay under the maximum size.
          *
          * Default: true
          */
-        fun trackWeakReferences(enable: Boolean) = apply {
-            this.trackWeakReferences = enable
+        fun respectCacheHeaders(enable: Boolean) = apply {
+            this.options = this.options.copy(respectCacheHeaders = enable)
         }
 
         /**
-         * Set a single [EventListener] that will receive all callbacks for requests launched by this image loader.
+         * Sets the maximum number of parallel [BitmapFactory] decode operations at once.
+         *
+         * Increasing this number will allow more parallel [BitmapFactory] decode operations,
+         * however it can result in worse UI performance.
+         *
+         * Default: 4
          */
-        fun eventListener(listener: EventListener) = eventListener(EventListener.Factory(listener))
+        fun bitmapFactoryMaxParallelism(maxParallelism: Int) = apply {
+            require(maxParallelism > 0) { "maxParallelism must be > 0." }
+            this.options = this.options.copy(bitmapFactoryMaxParallelism = maxParallelism)
+        }
+
+        /**
+         * Set a single [EventListener] that will receive all callbacks for requests launched by
+         * this image loader.
+         *
+         * @see eventListenerFactory
+         */
+        fun eventListener(listener: EventListener) = eventListenerFactory { listener }
 
         /**
          * Set the [EventListener.Factory] to create per-request [EventListener]s.
-         *
-         * @see eventListener
          */
-        fun eventListener(factory: EventListener.Factory) = apply {
+        fun eventListenerFactory(factory: EventListener.Factory) = apply {
             this.eventListenerFactory = factory
         }
+
 
         /**
          * Set the default precision for a request. [Precision] controls whether the size of the
@@ -261,6 +313,45 @@ interface SvgaLoader {
          */
         fun precision(precision: Precision) = apply {
             this.defaults = this.defaults.copy(precision = precision)
+        }
+
+
+        /**
+         * A convenience function to set [fetcherDispatcher], [decoderDispatcher], and
+         * [transformationDispatcher] in one call.
+         */
+        fun dispatcher(dispatcher: CoroutineDispatcher) = apply {
+            this.defaults = this.defaults.copy(
+                fetcherDispatcher = dispatcher,
+                decoderDispatcher = dispatcher,
+            )
+        }
+
+        /**
+         * The [CoroutineDispatcher] that the [Interceptor] chain will be executed on.
+         *
+         * Default: `Dispatchers.Main.immediate`
+         */
+        fun interceptorDispatcher(dispatcher: CoroutineDispatcher) = apply {
+            this.defaults = this.defaults.copy(interceptorDispatcher = dispatcher)
+        }
+
+        /**
+         * The [CoroutineDispatcher] that [Fetcher.fetch] will be executed on.
+         *
+         * Default: [Dispatchers.IO]
+         */
+        fun fetcherDispatcher(dispatcher: CoroutineDispatcher) = apply {
+            this.defaults = this.defaults.copy(fetcherDispatcher = dispatcher)
+        }
+
+        /**
+         * The [CoroutineDispatcher] that [Decoder.decode] will be executed on.
+         *
+         * Default: [Dispatchers.IO]
+         */
+        fun decoderDispatcher(dispatcher: CoroutineDispatcher) = apply {
+            this.defaults = this.defaults.copy(decoderDispatcher = dispatcher)
         }
 
         /**
@@ -296,48 +387,20 @@ interface SvgaLoader {
         }
 
         /**
-         * Create a new [SvgaLoader] instance.
+         * Create a new [ImageLoader] instance.
          */
         fun build(): SvgaLoader {
-            val availableMemorySize =
-                Utils.calculateAvailableMemorySize(applicationContext, availableMemoryPercentage)
-
-            val weakMemoryCache = if (trackWeakReferences) {
-                RealWeakMemoryCache(logger)
-            } else {
-                EmptyWeakMemoryCache
-            }
-            val referenceCounter = RealVideoEntityRefCounter(weakMemoryCache, logger)
-            val strongMemoryCache = StrongMemoryCache(
-                weakMemoryCache,
-                referenceCounter,
-                availableMemorySize.toInt(),
-                logger
-            )
-
             return RealSvgaLoader(
                 context = applicationContext,
                 defaults = defaults,
-                referenceCounter = referenceCounter,
-                strongMemoryCache = strongMemoryCache,
-                weakMemoryCache = weakMemoryCache,
-//                memoryCacheLazy = memoryCache ?: lazy {
-//                    MemoryCache.Builder(applicationContext).build()
-//                },
+                memoryCacheLazy = memoryCache ?: lazy { MemoryCache.Builder(applicationContext).build() },
                 diskCacheLazy = diskCache ?: lazy { SingletonDiskCache.get(applicationContext) },
                 callFactoryLazy = callFactory ?: lazy { OkHttpClient() },
                 eventListenerFactory = eventListenerFactory ?: EventListener.Factory.NONE,
-                componentRegistry = registry ?: ComponentRegistry(),
-                addLastModifiedToFileCacheKey = addLastModifiedToFileCacheKey,
-                launchInterceptorChainOnMainThread = launchInterceptorChainOnMainThread,
+                componentRegistry = componentRegistry ?: ComponentRegistry(),
+                options = options,
                 logger = logger
             )
-        }
-
-        private fun buildDefaultCallFactory() = lazyCallFactory {
-            OkHttpClient.Builder()
-                .cache(Utils.createDefaultCache(applicationContext))
-                .build()
         }
     }
 

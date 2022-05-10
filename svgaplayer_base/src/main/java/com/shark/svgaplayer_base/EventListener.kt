@@ -5,7 +5,7 @@ import androidx.annotation.MainThread
 import androidx.annotation.WorkerThread
 import com.shark.svgaplayer_base.decode.DecodeResult
 import com.shark.svgaplayer_base.decode.Decoder
-import com.shark.svgaplayer_base.decode.Options
+import com.shark.svgaplayer_base.request.Options
 import com.shark.svgaplayer_base.fetch.FetchResult
 import com.shark.svgaplayer_base.fetch.Fetcher
 import com.shark.svgaplayer_base.request.SVGARequest
@@ -29,17 +29,34 @@ interface EventListener : SVGARequest.Listener {
     @AnyThread
     fun mapEnd(request: SVGARequest, output: Any) {}
 
-    @WorkerThread
-    fun fetchStart(request: SVGARequest, fetcher: Fetcher<*>, options: Options) {}
+    /**
+     * Called before [Keyer.key].
+     *
+     * @param input The data that will be converted.
+     */
+    @MainThread
+    fun keyStart(request: SVGARequest, input: Any) {}
+
+    /**
+     * Called after [Keyer.key].
+     *
+     * @param output The data after it has been converted into a string key.
+     *  If [output] is 'null' it will not be cached in the memory cache.
+     */
+    @MainThread
+    fun keyEnd(request: SVGARequest, output: String?) {}
 
     @WorkerThread
-    fun fetchEnd(request: SVGARequest, fetcher: Fetcher<*>, options: Options, result: FetchResult) {}
+    fun fetchStart(request: SVGARequest, fetcher: Fetcher, options: Options) {}
+
+    @WorkerThread
+    fun fetchEnd(request: SVGARequest, fetcher: Fetcher, options: Options, result: FetchResult?) {}
 
     @WorkerThread
     fun decodeStart(request: SVGARequest, decoder: Decoder, options: Options) {}
 
     @WorkerThread
-    fun decodeEnd(request: SVGARequest, decoder: Decoder, options: Options, result: DecodeResult) {}
+    fun decodeEnd(request: SVGARequest, decoder: Decoder, options: Options, result: DecodeResult?) {}
 
     @MainThread
     override fun onCancel(request: SVGARequest) {}
@@ -49,6 +66,7 @@ interface EventListener : SVGARequest.Listener {
 
     @MainThread
     override fun onSuccess(request: SVGARequest, metadata: SVGAResult.Metadata) {}
+
 
     /** A factory that creates new [EventListener] instances. */
     fun interface Factory {

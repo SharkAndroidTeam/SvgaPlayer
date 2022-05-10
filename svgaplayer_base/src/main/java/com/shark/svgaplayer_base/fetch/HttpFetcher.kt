@@ -4,9 +4,10 @@ import android.net.Uri
 import android.os.NetworkOnMainThreadException
 import android.webkit.MimeTypeMap
 import androidx.annotation.VisibleForTesting
+import com.shark.svgaplayer_base.SvgaLoader
 import com.shark.svgaplayer_base.annotation.ExperimentalCoilApi
 import com.shark.svgaplayer_base.decode.DataSource
-import com.shark.svgaplayer_base.decode.Options
+import com.shark.svgaplayer_base.request.Options
 import com.shark.svgaplayer_base.disk.DiskCache
 import com.shark.svgaplayer_base.network.CacheResponse
 import com.shark.svgaplayer_base.network.CacheStrategy
@@ -25,46 +26,17 @@ import okio.IOException
 import okio.buffer
 import java.net.HttpURLConnection
 
-internal class HttpUriFetcher(callFactory: Lazy<Call.Factory>, diskCache: Lazy<DiskCache?>) :
-    HttpFetcher<Uri>(callFactory, diskCache) {
 
-    override fun handles(data: Uri) = data.scheme == "http" || data.scheme == "https"
-
-    override fun key(data: Uri) = data.toString().md5Key()
-
-    override fun Uri.toHttpUrl(): HttpUrl = toString().toHttpUrl()
-}
-
-internal class HttpUrlFetcher(callFactory: Lazy<Call.Factory>, diskCache: Lazy<DiskCache?>) :
-    HttpFetcher<HttpUrl>(callFactory, diskCache) {
-
-    override fun key(data: HttpUrl) = data.toString().md5Key()
-
-    override fun HttpUrl.toHttpUrl(): HttpUrl = this
-}
-
-internal abstract class HttpFetcher<T : Any>(
+internal class HttpUriFetcher(
+    private val url: String,
+    private val options: Options,
     private val callFactory: Lazy<Call.Factory>,
     private val diskCache: Lazy<DiskCache?>,
-) : Fetcher<T> {
-
-    /**
-     * Perform this conversion in a [Fetcher] instead of a [Mapper] so
-     * [HttpUriFetcher] can execute [HttpUrl.get] on a background thread.
-     */
-    abstract fun T.toHttpUrl(): HttpUrl
-
-    private var url: String? = ""
-    private var options: Options? = null
+    private val respectCacheHeaders: Boolean
+) : Fetcher {
 
     @OptIn(ExperimentalCoilApi::class)
-    override suspend fun fetch(
-        data: T,
-        size: Size,
-        options: Options
-    ): FetchResult {
-        this.url = data.toHttpUrl().toString()
-        this.options = options
+    override suspend fun fetch(): FetchResult {
         var snapshot = readFromDiskCache()
         try {
             // Fast path: fetch the image from the disk cache without performing a network request.
@@ -74,17 +46,30 @@ internal abstract class HttpFetcher<T : Any>(
                 if (fileSystem.metadata(snapshot.metadata).size == 0L) {
                     return SourceResult(
                         source = snapshot.toBufferSource(),
-                        mimeType = getMimeType(this.url?:"", null),
+                        mimeType = getMimeType(this.url, null),
                         dataSource = DataSource.DISK
                     )
                 }
 
 
-                return SourceResult(
-                    source = snapshot.toBufferSource(),
-                    mimeType = getMimeType(this.url?:"", snapshot.toCacheResponse()?.contentType),
-                    dataSource = DataSource.DISK
-                )
+                // Return the candidate from the cache if it is eligible.
+                if (respectCacheHeaders) {
+                    cacheStrategy = CacheStrategy.Factory(newRequest(), snapshot.toCacheResponse()).compute()
+                    if (cacheStrategy.networkRequest == null && cacheStrategy.cacheResponse != null) {
+                        return SourceResult(
+                            source = snapshot.toBufferSource(),
+                            mimeType = getMimeType(url, cacheStrategy.cacheResponse.contentType),
+                            dataSource = DataSource.DISK
+                        )
+                    }
+                } else {
+                    // Skip checking the cache headers if the option is disabled.
+                    return SourceResult(
+                        source = snapshot.toBufferSource(),
+                        mimeType = getMimeType(url, snapshot.toCacheResponse()?.contentType),
+                        dataSource = DataSource.DISK
+                    )
+                }
 
             } else {
                 cacheStrategy = CacheStrategy.Factory(newRequest(), null).compute()
@@ -105,7 +90,7 @@ internal abstract class HttpFetcher<T : Any>(
                 if (snapshot != null) {
                     return SourceResult(
                         source = snapshot.toBufferSource(),
-                        mimeType = getMimeType(this.url?:"", snapshot.toCacheResponse()?.contentType),
+                        mimeType = getMimeType(this.url, snapshot.toCacheResponse()?.contentType),
                         dataSource = DataSource.NETWORK
                     )
                 }
@@ -126,7 +111,7 @@ internal abstract class HttpFetcher<T : Any>(
 
                     return SourceResult(
                         source = responseBody.toBufferSource(),
-                        mimeType = getMimeType(this.url?:"", responseBody.contentType()),
+                        mimeType = getMimeType(this.url, responseBody.contentType()),
                         dataSource = response.toDataSource()
                     )
                 }
@@ -146,7 +131,7 @@ internal abstract class HttpFetcher<T : Any>(
 
     @OptIn(ExperimentalCoilApi::class)
     private fun readFromDiskCache(): DiskCache.Snapshot? {
-        return if (options?.diskCachePolicy?.readEnabled == true) {
+        return if (options.diskCachePolicy.readEnabled) {
             diskCache.value?.get(diskCacheKey)
         } else {
             null
@@ -206,19 +191,19 @@ internal abstract class HttpFetcher<T : Any>(
     private fun newRequest(): Request {
         val request = Request.Builder()
             .url(url ?: "")
-            .headers(options?.headers ?: Headers.headersOf(""))
+            .headers(options.headers)
 
         // Attach all custom tags to this request.
 //        @Suppress("UNCHECKED_CAST")
 //        options.tags.asMap().forEach { request.tag(it.key as Class<Any>, it.value) }
 
-        val diskRead = options?.diskCachePolicy?.readEnabled == true
-        val networkRead = options?.networkCachePolicy?.readEnabled == true
+        val diskRead = options.diskCachePolicy.readEnabled
+        val networkRead = options.networkCachePolicy.readEnabled
         when {
             !networkRead && diskRead -> {
                 request.cacheControl(CacheControl.FORCE_CACHE)
             }
-            networkRead && !diskRead -> if (options?.diskCachePolicy?.writeEnabled == true) {
+            networkRead && !diskRead -> if (options.diskCachePolicy.writeEnabled) {
                 request.cacheControl(CacheControl.FORCE_NETWORK)
             } else {
                 request.cacheControl(CACHE_CONTROL_FORCE_NETWORK_NO_CACHE)
@@ -269,10 +254,8 @@ internal abstract class HttpFetcher<T : Any>(
     }
 
     private fun isCacheable(request: Request, response: Response): Boolean {
-        return options?.diskCachePolicy?.writeEnabled == true && CacheStrategy.isCacheable(
-            request,
-            response
-        )
+        return options.diskCachePolicy.writeEnabled &&
+                (!respectCacheHeaders || CacheStrategy.isCacheable(request, response))
     }
 
     private fun DiskCache.Snapshot.toCacheResponse(): CacheResponse? {
@@ -301,6 +284,22 @@ internal abstract class HttpFetcher<T : Any>(
 
     private fun Response.requireBody(): ResponseBody {
         return checkNotNull(body) { "response body == null" }
+    }
+
+    class Factory(
+        private val callFactory: Lazy<Call.Factory>,
+        private val diskCache: Lazy<DiskCache?>,
+        private val respectCacheHeaders: Boolean
+    ) : Fetcher.Factory<Uri> {
+
+        override fun create(data: Uri, options: Options, imageLoader: SvgaLoader): Fetcher? {
+            if (!isApplicable(data)) return null
+            return HttpUriFetcher(data.toString(), options, callFactory, diskCache, respectCacheHeaders)
+        }
+
+        private fun isApplicable(data: Uri): Boolean {
+            return data.scheme == "http" || data.scheme == "https"
+        }
     }
 
     companion object {

@@ -3,23 +3,22 @@ package com.shark.svgaplayer_base
 import android.content.Context
 import android.util.Log
 import androidx.annotation.MainThread
-import com.opensource.svgaplayer.SVGAVideoEntity
 import com.shark.svgaplayer_base.decode.SVGAVideoEntityDecoder
 import com.shark.svgaplayer_base.disk.DiskCache
 import com.shark.svgaplayer_base.fetch.*
 import com.shark.svgaplayer_base.intercept.EngineInterceptor
 import com.shark.svgaplayer_base.intercept.RealInterceptorChain
+import com.shark.svgaplayer_base.key.FileKeyer
+import com.shark.svgaplayer_base.key.UriKeyer
 import com.shark.svgaplayer_base.map.FileUriMapper
 import com.shark.svgaplayer_base.map.ResourceUriMapper
 import com.shark.svgaplayer_base.map.StringMapper
 import com.shark.svgaplayer_base.memory.*
-import com.shark.svgaplayer_base.recycle.VideoEntityRefCounter
 import com.shark.svgaplayer_base.request.*
 import com.shark.svgaplayer_base.size.Size
+import com.shark.svgaplayer_base.target.Target
 import com.shark.svgaplayer_base.target.ViewTarget
 import com.shark.svgaplayer_base.util.*
-import com.shark.svgaplayer_base.util.Utils.REQUEST_TYPE_ENQUEUE
-import com.shark.svgaplayer_base.util.Utils.REQUEST_TYPE_EXECUTE
 import com.shark.svgaplayer_base.util.job
 import kotlinx.coroutines.*
 import okhttp3.Call
@@ -32,84 +31,86 @@ import kotlin.coroutines.coroutineContext
  * @Date 2020/11/26
  * @Email svenjzm@gmail.com
  */
-class RealSvgaLoader(
+internal class RealSvgaLoader(
     val context: Context,
     override val defaults: DefaultRequestOptions,
-    private val referenceCounter: VideoEntityRefCounter,
-    private val strongMemoryCache: StrongMemoryCache,
-    private val weakMemoryCache: WeakMemoryCache,
-//    private val memoryCacheLazy: Lazy<MemoryCache?>,
-    private val diskCacheLazy: Lazy<DiskCache?>,
-    private val callFactoryLazy: Lazy<Call.Factory>,
-    private val eventListenerFactory: EventListener.Factory,
-    componentRegistry: ComponentRegistry,
-    addLastModifiedToFileCacheKey: Boolean,
-    private val launchInterceptorChainOnMainThread: Boolean,
-    val logger: Logger?
+    val memoryCacheLazy: Lazy<MemoryCache?>,
+    val diskCacheLazy: Lazy<DiskCache?>,
+    val callFactoryLazy: Lazy<Call.Factory>,
+    val eventListenerFactory: EventListener.Factory,
+    val componentRegistry: ComponentRegistry,
+    val options: SVGALoaderOptions,
+    val logger: Logger?,
 ) : SvgaLoader {
+
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate +
             CoroutineExceptionHandler { _, throwable -> logger?.log(TAG, throwable) })
-    private val delegateService = DelegateService(this, referenceCounter, logger)
-    private val memoryCacheService =
-        MemoryCacheService(referenceCounter, strongMemoryCache, weakMemoryCache)
-    private val requestService = RequestService(logger)
-//    override val memoryCache by memoryCacheLazy
+
+    private val systemCallbacks = SystemCallbacks(this, context, options.networkObserverEnabled)
+
+    private val requestService = RequestService(this, systemCallbacks, logger)
+    override val memoryCache by memoryCacheLazy
     override val diskCache by diskCacheLazy
-    private val systemCallbacks = SystemCallbacks(this, context)
-    private val registry = componentRegistry.newBuilder()
+
+
+    override val components = componentRegistry.newBuilder()
         // Mappers
         .add(StringMapper())
         .add(FileUriMapper())
         .add(ResourceUriMapper(context))
+        // Keyers
+        .add(UriKeyer())
+        .add(FileKeyer(options.addLastModifiedToFileCacheKey))
         // Fetchers
-        .add(HttpUriFetcher(callFactoryLazy,diskCacheLazy))
-        .add(HttpUrlFetcher(callFactoryLazy,diskCacheLazy))
-        .add(FileFetcher(addLastModifiedToFileCacheKey))
-        .add(AssetUriFetcher(context))
-        .add(ResourceUriFetcher(context))
+        .add(HttpUriFetcher.Factory(callFactoryLazy, diskCacheLazy, options.respectCacheHeaders))
+        .add(FileFetcher.Factory())
+        .add(AssetUriFetcher.Factory())
+        .add(ResourceUriFetcher.Factory())
         // Decoders
-        .add(SVGAVideoEntityDecoder(context))
+        .add(SVGAVideoEntityDecoder.Factory(options.bitmapFactoryMaxParallelism))
         .build()
 
-    private val interceptors = registry.interceptors + EngineInterceptor(
-        registry, referenceCounter, strongMemoryCache, memoryCacheService, requestService,
-        systemCallbacks, callFactoryLazy.value, logger
-    )
+    private val interceptors =
+        components.interceptors + EngineInterceptor(this, requestService, logger,callFactoryLazy.value,)
 
     private val isShutdown = AtomicBoolean(false)
 
     override fun enqueue(request: SVGARequest): Disposable {
         // Start executing the request on the main thread.
-        val job = scope.launch {
-            val result = executeMain(request, REQUEST_TYPE_ENQUEUE)
-            if (result is ErrorResult) throw result.throwable
+        val job = scope.async {
+            executeMain(request, REQUEST_TYPE_ENQUEUE).also { result ->
+                if (result is ErrorResult) logger?.log(TAG, result.throwable)
+            }
         }
 
         // Update the current request attached to the view and return a new disposable.
         return if (request.target is ViewTarget<*>) {
-            val requestId = request.target.view.requestManager.setCurrentRequestJob(job)
-            ViewTargetDisposable(requestId, request.target)
+            request.target.view.requestManager.getDisposable(job)
         } else {
-            BaseTargetDisposable(job)
+            OneShotDisposable(job)
         }
     }
 
-    override suspend fun execute(request: SVGARequest): SVGAResult {
-        // Update the current request attached to the view synchronously.
-        if (request.target is ViewTarget<*>) {
-            request.target.view.requestManager.setCurrentRequestJob(coroutineContext.job)
-        }
-
+    override suspend fun execute(request: SVGARequest) = coroutineScope {
         // Start executing the request on the main thread.
-        return withContext(Dispatchers.Main.immediate) {
+        val job = async(Dispatchers.Main.immediate) {
             executeMain(request, REQUEST_TYPE_EXECUTE)
         }
+
+        // Update the current request attached to the view and await the result.
+        if (request.target is ViewTarget<*>) {
+            request.target.view.requestManager.getDisposable(job)
+        }
+        return@coroutineScope job.await()
     }
+
 
     @MainThread
     private suspend fun executeMain(initialRequest: SVGARequest, type: Int): SVGAResult {
-        // Ensure this image loader isn't shutdown.
-        check(!isShutdown.get()) { "The svga loader is shutdown." }
+        // Wrap the request to manage its lifecycle.
+        val requestDelegate = requestService.requestDelegate(initialRequest, coroutineContext.job)
+            .apply { assertActive() }
 
         // Apply this image loader's defaults to this request.
         val request = initialRequest.newBuilder().defaults(defaults).build()
@@ -117,17 +118,12 @@ class RealSvgaLoader(
         // Create a new event listener.
         val eventListener = eventListenerFactory.create(request)
 
-        // Wrap the target to support bitmap pooling.
-        val targetDelegate =
-            delegateService.createTargetDelegate(request.target, type, eventListener)
-
-        // Wrap the request to manage its lifecycle.
-        val requestDelegate =
-            delegateService.createRequestDelegate(request, targetDelegate, coroutineContext.job)
-
         try {
             // Fail before starting if data is null.
             if (request.data == NullRequestData) throw NullRequestDataException()
+
+            // Set up the request's lifecycle observers.
+            requestDelegate.start()
 
             // Enqueued requests suspend until the lifecycle is started.
             if (type == REQUEST_TYPE_ENQUEUE) request.lifecycle.awaitStarted()
@@ -135,8 +131,7 @@ class RealSvgaLoader(
             // Set the placeholder on the target.
             val cached = null
             try {
-                targetDelegate.metadata = null
-                targetDelegate.start(cached)
+                request.target?.onStart()
                 eventListener.onStart(request)
                 request.listener?.onStart(request)
             } finally {
@@ -149,12 +144,21 @@ class RealSvgaLoader(
             eventListener.resolveSizeEnd(request, size)
 
             // Execute the interceptor chain.
-            val result = executeChain(request, type, size, cached, eventListener)
+            val result = withContext(request.interceptorDispatcher) {
+                RealInterceptorChain(
+                    initialRequest = request,
+                    interceptors = interceptors,
+                    index = 0,
+                    request = request,
+                    size = size,
+                    eventListener = eventListener,
+                ).proceed(request)
+            }
 
             // Set the result on the target.
             when (result) {
-                is SuccessResult -> onSuccess(result, targetDelegate, eventListener)
-                is ErrorResult -> onError(result, targetDelegate, eventListener)
+                is SuccessResult -> onSuccess(result, request.target, eventListener)
+                is ErrorResult -> onError(result, request.target, eventListener)
             }
             return result
         } catch (throwable: Throwable) {
@@ -164,7 +168,7 @@ class RealSvgaLoader(
             } else {
                 // Create the default error result if there's an uncaught exception.
                 val result = requestService.errorResult(request, throwable)
-                onError(result, targetDelegate, eventListener)
+                onError(result, request.target, eventListener)
                 return result
             }
         } finally {
@@ -172,79 +176,89 @@ class RealSvgaLoader(
         }
     }
 
+
     /** Called by [SystemCallbacks.onTrimMemory]. */
-    fun onTrimMemory(level: Int) {
-        strongMemoryCache.trimMemory(level)
-        weakMemoryCache.trimMemory(level)
+    @Suppress("SAFE_CALL_WILL_CHANGE_NULLABILITY", "UNNECESSARY_SAFE_CALL")
+    internal fun onTrimMemory(level: Int) {
+        // https://github.com/coil-kt/coil/issues/1211
+        memoryCacheLazy?.value?.trimMemory(level)
     }
 
     override fun shutdown() {
         if (isShutdown.getAndSet(true)) return
-
-        // Order is important.
         scope.cancel()
         systemCallbacks.shutdown()
-        strongMemoryCache.clearMemory()
-        weakMemoryCache.clearMemory()
+        memoryCache?.clear()
     }
 
-    private suspend inline fun executeChain(
-        request: SVGARequest,
-        type: Int,
-        size: Size,
-        cached: SVGAVideoEntity?,
-        eventListener: EventListener
-    ): SVGAResult {
-        val chain =
-            RealInterceptorChain(request, type, interceptors, 0, request, size, eventListener)
-        return if (launchInterceptorChainOnMainThread) {
-            chain.proceed(request)
-        } else {
-            withContext(request.dispatcher) {
-                chain.proceed(request)
-            }
-        }
-    }
+    override fun newBuilder() = SvgaLoader.Builder(this)
 
-    private suspend inline fun onSuccess(
+
+    private fun onSuccess(
         result: SuccessResult,
-        targetDelegate: TargetDelegate,
-        eventListener: EventListener
-    ) {
-        try {
-            val request = result.request
-            val metadata = result.metadata
-            val dataSource = metadata.dataSource
-            logger?.log(TAG, Log.INFO) { "Successful (${dataSource.name}) - ${request.data}" }
-            targetDelegate.metadata = metadata
-            targetDelegate.success(result)
-            eventListener.onSuccess(request, metadata)
-            request.listener?.onSuccess(request, metadata)
-        } finally {
-            referenceCounter.decrement(result.drawable)
-        }
-    }
-
-    private suspend inline fun onError(
-        result: ErrorResult,
-        targetDelegate: TargetDelegate,
+        target: Target?,
         eventListener: EventListener
     ) {
         val request = result.request
-        logger?.log(TAG, Log.INFO) { "Failed - ${request.data} - ${result.throwable}" }
-        targetDelegate.metadata = null
-        targetDelegate.error(result)
+        val metadata = result.metadata
+        val dataSource = metadata.dataSource
+        logger?.log(TAG, Log.INFO) { "Successful (${dataSource.name}) - ${request.data}" }
+//        transition(result, target, eventListener) { target?.onSuccess(result.drawable) }
+        target?.onSuccess(result.drawable)
+        eventListener.onSuccess(request, metadata)
+        request.listener?.onSuccess(request, metadata)
+    }
+
+    private fun onError(
+        result: ErrorResult,
+        target: Target?,
+        eventListener: EventListener
+    ) {
+        val request = result.request
+        logger?.log(TAG, Log.INFO) {
+            " Failed - ${request.data} - ${result.throwable}"
+        }
+//        transition(result, target, eventListener) { target?.onError() }
+        target?.onError()
         eventListener.onError(request, result.throwable)
         request.listener?.onError(request, result.throwable)
     }
 
     private fun onCancel(request: SVGARequest, eventListener: EventListener) {
-        logger?.log(TAG, Log.INFO) { "Cancelled - ${request.data}" }
+        logger?.log(TAG, Log.INFO) {
+            "Cancelled - ${request.data}"
+        }
         eventListener.onCancel(request)
         request.listener?.onCancel(request)
     }
 
+
+//    private inline fun transition(
+//        result: SVGAResult,
+//        target: Target?,
+//        eventListener: EventListener,
+//        setDrawable: () -> Unit
+//    ) {
+//        if (target !is TransitionTarget) {
+//            setDrawable()
+//            return
+//        }
+//
+//        val transition = result.request.transitionFactory.create(target, result)
+//        if (transition is NoneTransition) {
+//            setDrawable()
+//            return
+//        }
+//
+//        eventListener.transitionStart(result.request, transition)
+//        transition.transition()
+//        eventListener.transitionEnd(result.request, transition)
+//    }
+
     companion object {
         private const val TAG = "RealImageLoader"
+        private const val REQUEST_TYPE_ENQUEUE = 0
+        private const val REQUEST_TYPE_EXECUTE = 1
     }
+
 }

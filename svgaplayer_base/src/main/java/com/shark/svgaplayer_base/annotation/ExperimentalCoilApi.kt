@@ -8,5 +8,4 @@ package com.shark.svgaplayer_base.annotation
  */
 @MustBeDocumented
 @Retention(value = AnnotationRetention.BINARY)
-@RequiresOptIn(level = RequiresOptIn.Level.WARNING)
 annotation class ExperimentalCoilApi

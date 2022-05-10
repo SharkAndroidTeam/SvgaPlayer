@@ -11,24 +11,33 @@ import kotlinx.parcelize.Parcelize
  * @Date 2020/11/25
  * @Email svenjzm@gmail.com
  */
-sealed class Size : Parcelable
+data class Size(
+    val width: Dimension,
+    val height: Dimension,
+) {
 
-/** Represents the width and height of the source image. */
-@SuppressLint("ParcelCreator")
-@Parcelize
-object OriginalSize : Size() {
-    override fun toString() = "com.gmlive.svgaplayer.size.OriginalSize"
-}
-
-/** A positive width and height in pixels. */
-@SuppressLint("ParcelCreator")
-@Parcelize
-data class PixelSize(
-    @Px val width: Int,
-    @Px val height: Int
-) : Size() {
-
-    init {
-        require(width > 0 && height > 0) { "width and height must be > 0." }
+    companion object {
+        /**
+         * A [Size] whose width and height are not scaled.
+         */
+        @JvmField val ORIGINAL = Size(Dimension.Undefined, Dimension.Undefined)
     }
 }
+
+/** Create a [Size] with a pixel value for width. */
+fun Size(@Px width: Int, height: Dimension) = Size(Dimension(width), height)
+
+/** Create a [Size] with a pixel value for height. */
+fun Size(width: Dimension, @Px height: Int) = Size(width, Dimension(height))
+
+/** Create a [Size] with pixel values for both width and height. */
+fun Size(@Px width: Int, @Px height: Int) = Size(Dimension(width), Dimension(height))
+
+/** Return true if this size is equal to [Size.ORIGINAL]. Else, return false. */
+val Size.isOriginal: Boolean get() = this == Size.ORIGINAL
+
+@Deprecated(
+    message = "Migrate to 'coil.size.Size.ORIGINAL'.",
+    replaceWith = ReplaceWith("Size.ORIGINAL", "coil.size.Size")
+)
+val OriginalSize: Size get() = Size.ORIGINAL

@@ -1,20 +1,33 @@
 package com.shark.svgaplayer_base.util
 
 import android.app.ActivityManager
+import android.content.ContentResolver
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Build.VERSION.SDK_INT
 import android.os.StatFs
 import android.view.View
 import androidx.annotation.Px
+import com.shark.svgaplayer_base.ComponentRegistry
+import com.shark.svgaplayer_base.EventListener
+import com.shark.svgaplayer_base.R
+import com.shark.svgaplayer_base.decode.Decoder
 import com.shark.svgaplayer_base.disk.DiskCache
+import com.shark.svgaplayer_base.fetch.AssetUriFetcher.Companion.ASSET_FILE_PATH_ROOT
+import com.shark.svgaplayer_base.fetch.Fetcher
+import com.shark.svgaplayer_base.intercept.Interceptor
+import com.shark.svgaplayer_base.intercept.RealInterceptorChain
 import com.shark.svgaplayer_base.request.SVGAResult
+import com.shark.svgaplayer_base.request.ViewTargetRequestManager
 import com.shark.svgaplayer_base.util.*
 import com.shark.svgaplayer_base.util.blockCountCompat
 import com.shark.svgaplayer_base.util.blockSizeCompat
 import com.shark.svgaplayer_base.util.isLowRamDeviceCompat
 import com.shark.svgaplayer_base.util.requestManager
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import okhttp3.Cache
 import okio.BufferedSource
 import okio.ByteString.Companion.toByteString
@@ -108,16 +121,16 @@ object Utils {
      * NOTE: Typically you should use [Disposable.dispose] to clear any associated resources,
      * however this method is provided for convenience.
      */
-    @JvmStatic
-    fun clear(view: View) {
-        view.requestManager.clearCurrentRequest()
-    }
-
-    /** Get the metadata of the successful request attached to this view. */
-    @JvmStatic
-    fun metadata(view: View): SVGAResult.Metadata? {
-        return view.requestManager.metadata
-    }
+//    @JvmStatic
+//    fun clear(view: View) {
+//        view.requestManager.clearCurrentRequest()
+//    }
+//
+//    /** Get the metadata of the successful request attached to this view. */
+//    @JvmStatic
+//    fun metadata(view: View): SVGAResult.Metadata? {
+//        return view.requestManager.metadata
+//    }
 
     @JvmStatic
     fun createDefaultSVGAUnzipDir(context: Context): File {
@@ -206,4 +219,26 @@ internal fun calculateMemoryCacheSize(context: Context, percent: Double): Int {
 }
 
 
+internal fun isAssetUri(uri: Uri): Boolean {
+    return uri.scheme == ContentResolver.SCHEME_FILE && uri.firstPathSegment == ASSET_FILE_PATH_ROOT
+}
 
+@OptIn(ExperimentalCoroutinesApi::class)
+internal fun <T> Deferred<T>.getCompletedOrNull(): T? {
+    return try {
+        getCompleted()
+    } catch (_: Throwable) {
+        null
+    }
+}
+
+internal val Interceptor.Chain.eventListener: EventListener
+    get() = if (this is RealInterceptorChain) eventListener else EventListener.NONE
+
+internal inline fun ComponentRegistry.Builder.addFirst(
+    pair: Pair<Fetcher.Factory<*>, Class<*>>?
+) = apply { if (pair != null) fetcherFactories.add(0, pair) }
+
+internal inline fun ComponentRegistry.Builder.addFirst(
+    factory: Decoder.Factory?
+) = apply { if (factory != null) decoderFactories.add(0, factory) }

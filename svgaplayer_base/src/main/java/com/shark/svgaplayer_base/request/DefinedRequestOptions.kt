@@ -11,7 +11,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 class DefinedRequestOptions(
     val lifecycle: Lifecycle?,
     val sizeResolver: SizeResolver?,
-    val dispatcher: CoroutineDispatcher?,
+    val interceptorDispatcher: CoroutineDispatcher?,
+    val fetcherDispatcher: CoroutineDispatcher?,
+    val decoderDispatcher: CoroutineDispatcher?,
     val precision: Precision?,
     val allowHardware: Boolean?,
     val memoryCachePolicy: CachePolicy?,
@@ -22,34 +24,53 @@ class DefinedRequestOptions(
     fun copy(
         lifecycle: Lifecycle? = this.lifecycle,
         sizeResolver: SizeResolver? = this.sizeResolver,
-        dispatcher: CoroutineDispatcher? = this.dispatcher,
+        interceptorDispatcher: CoroutineDispatcher? = this.interceptorDispatcher,
+        fetcherDispatcher: CoroutineDispatcher? = this.fetcherDispatcher,
+        decoderDispatcher: CoroutineDispatcher? = this.decoderDispatcher,
         precision: Precision? = this.precision,
         allowHardware: Boolean? = this.allowHardware,
         memoryCachePolicy: CachePolicy? = this.memoryCachePolicy,
         diskCachePolicy: CachePolicy? = this.diskCachePolicy,
         networkCachePolicy: CachePolicy? = this.networkCachePolicy
     ) = DefinedRequestOptions(
-        lifecycle, sizeResolver, dispatcher, precision, allowHardware, memoryCachePolicy,
-        diskCachePolicy, networkCachePolicy
+        lifecycle,
+        sizeResolver,
+        interceptorDispatcher,
+        fetcherDispatcher,
+        decoderDispatcher,
+        precision,
+        allowHardware,
+        memoryCachePolicy,
+        diskCachePolicy,
+        networkCachePolicy
     )
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        return other is DefinedRequestOptions &&
-                lifecycle == other.lifecycle &&
-                sizeResolver == other.sizeResolver &&
-                dispatcher == other.dispatcher &&
-                precision == other.precision &&
-                allowHardware == other.allowHardware &&
-                memoryCachePolicy == other.memoryCachePolicy &&
-                diskCachePolicy == other.diskCachePolicy &&
-                networkCachePolicy == other.networkCachePolicy
+        if (javaClass != other?.javaClass) return false
+
+        other as DefinedRequestOptions
+
+        if (lifecycle != other.lifecycle) return false
+        if (sizeResolver != other.sizeResolver) return false
+        if (interceptorDispatcher != other.interceptorDispatcher) return false
+        if (fetcherDispatcher != other.fetcherDispatcher) return false
+        if (decoderDispatcher != other.decoderDispatcher) return false
+        if (precision != other.precision) return false
+        if (allowHardware != other.allowHardware) return false
+        if (memoryCachePolicy != other.memoryCachePolicy) return false
+        if (diskCachePolicy != other.diskCachePolicy) return false
+        if (networkCachePolicy != other.networkCachePolicy) return false
+
+        return true
     }
 
     override fun hashCode(): Int {
         var result = lifecycle?.hashCode() ?: 0
         result = 31 * result + (sizeResolver?.hashCode() ?: 0)
-        result = 31 * result + (dispatcher?.hashCode() ?: 0)
+        result = 31 * result + (interceptorDispatcher?.hashCode() ?: 0)
+        result = 31 * result + (fetcherDispatcher?.hashCode() ?: 0)
+        result = 31 * result + (decoderDispatcher?.hashCode() ?: 0)
         result = 31 * result + (precision?.hashCode() ?: 0)
         result = 31 * result + (allowHardware?.hashCode() ?: 0)
         result = 31 * result + (memoryCachePolicy?.hashCode() ?: 0)
@@ -58,11 +79,5 @@ class DefinedRequestOptions(
         return result
     }
 
-    override fun toString(): String {
-        return "DefinedRequestOptions(lifecycle=$lifecycle, sizeResolver=$sizeResolver, " +
-                "dispatcher=$dispatcher, precision=$precision, allowHardware=$allowHardware, " +
-                "memoryCachePolicy=$memoryCachePolicy, diskCachePolicy=$diskCachePolicy, " +
-                "networkCachePolicy=$networkCachePolicy)"
-    }
 
 }

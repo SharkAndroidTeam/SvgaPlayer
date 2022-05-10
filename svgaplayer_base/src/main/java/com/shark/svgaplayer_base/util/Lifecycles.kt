@@ -12,19 +12,14 @@ import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
+
 /** Suspend until [Lifecycle.getCurrentState] is at least [STARTED] */
 @MainThread
-internal suspend inline fun Lifecycle.awaitStarted() {
+internal suspend fun Lifecycle.awaitStarted() {
     // Fast path: we're already started.
     if (currentState.isAtLeast(STARTED)) return
 
     // Slow path: observe the lifecycle until we're started.
-    observeStarted()
-}
-
-/** Cannot be 'inline' due to a compiler bug. There is a test that guards against this bug. */
-@MainThread
-internal suspend fun Lifecycle.observeStarted() {
     var observer: LifecycleObserver? = null
     try {
         suspendCancellableCoroutine<Unit> { continuation ->
@@ -39,4 +34,11 @@ internal suspend fun Lifecycle.observeStarted() {
         // 'observer' will always be null if this method is marked as 'inline'.
         observer?.let(::removeObserver)
     }
+}
+
+/** Remove and re-add the observer to ensure all its lifecycle callbacks are invoked. */
+@MainThread
+internal fun Lifecycle.removeAndAddObserver(observer: LifecycleObserver) {
+    removeObserver(observer)
+    addObserver(observer)
 }

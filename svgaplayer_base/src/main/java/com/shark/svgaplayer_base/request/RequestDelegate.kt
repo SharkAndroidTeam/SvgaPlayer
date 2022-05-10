@@ -6,31 +6,40 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.shark.svgaplayer_base.SvgaLoader
-import com.shark.svgaplayer_base.util.metadata
+import com.shark.svgaplayer_base.target.ViewTarget
+import com.shark.svgaplayer_base.util.removeAndAddObserver
+import com.shark.svgaplayer_base.util.requestManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 
 internal sealed class RequestDelegate : DefaultLifecycleObserver {
 
-    /** Called when the image request completes for any reason. */
+    /** Throw a [CancellationException] if this request should be cancelled before starting. */
     @MainThread
-    open fun complete() {
-    }
+    open fun assertActive() {}
 
-    /** Cancel any in progress work and free all resources. */
+    /** Register all lifecycle observers. */
     @MainThread
-    open fun dispose() {
-    }
+    open fun start() {}
 
-    /** Automatically dispose this delegate when the containing lifecycle is destroyed. */
+    /** Called when this request's job is cancelled or completes successfully/unsuccessfully. */
     @MainThread
-    override fun onDestroy(owner: LifecycleOwner) = dispose()
+    open fun complete() {}
+
+    /** Cancel this request's job and clear all lifecycle observers. */
+    @MainThread
+    open fun dispose() {}
 }
 
-/** A request delegate for a one-shot requests with a non-poolable target. */
+/** A request delegate for a one-shot requests with no target or a non-[ViewTarget]. */
 internal class BaseRequestDelegate(
     private val lifecycle: Lifecycle,
     private val job: Job
 ) : RequestDelegate() {
+
+    override fun start() {
+        lifecycle.addObserver(this)
+    }
 
     override fun complete() {
         lifecycle.removeObserver(this)
@@ -39,29 +48,47 @@ internal class BaseRequestDelegate(
     override fun dispose() {
         job.cancel()
     }
+
+    override fun onDestroy(owner: LifecycleOwner) = dispose()
 }
 
 /** A request delegate for requests with a [ViewTarget]. */
+
+/** A request delegate for restartable requests with a [ViewTarget]. */
 internal class ViewTargetRequestDelegate(
     private val imageLoader: SvgaLoader,
-    private val request: SVGARequest,
-    private val targetDelegate: TargetDelegate,
+    private val initialRequest: SVGARequest,
+    private val target: ViewTarget<*>,
+    private val lifecycle: Lifecycle,
     private val job: Job
 ) : RequestDelegate() {
 
-    /** Repeat this request with the same params. */
+    /** Repeat this request with the same [ImageRequest]. */
     @MainThread
     fun restart() {
-        imageLoader.enqueue(request)
+        imageLoader.enqueue(initialRequest)
+    }
+
+    override fun assertActive() {
+        if (!target.view.isAttachedToWindow) {
+            target.view.requestManager.setRequest(this)
+            throw CancellationException("'ViewTarget.view' must be attached to a window.")
+        }
+    }
+
+    override fun start() {
+        lifecycle.addObserver(this)
+        if (target is LifecycleObserver) lifecycle.removeAndAddObserver(target)
+        target.view.requestManager.setRequest(this)
     }
 
     override fun dispose() {
         job.cancel()
-        targetDelegate.clear()
-        targetDelegate.metadata = null
-        if (request.target is LifecycleObserver) {
-            request.lifecycle.removeObserver(request.target)
-        }
-        request.lifecycle.removeObserver(this)
+        if (target is LifecycleObserver) lifecycle.removeObserver(target)
+        lifecycle.removeObserver(this)
+    }
+
+    override fun onDestroy(owner: LifecycleOwner) {
+        target.view.requestManager.dispose()
     }
 }

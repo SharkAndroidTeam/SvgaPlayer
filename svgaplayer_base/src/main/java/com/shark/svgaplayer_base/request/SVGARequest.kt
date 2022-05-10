@@ -27,6 +27,7 @@ import okhttp3.Headers
 import okhttp3.HttpUrl
 import java.io.File
 import com.shark.svgaplayer_base.target.Target
+import com.shark.svgaplayer_base.util.DEFAULT_REQUEST_OPTIONS
 
 /**
  * An immutable value object that represents a request for an image.
@@ -49,17 +50,23 @@ class SVGARequest private constructor(
     /** @see Builder.memoryCacheKey */
     val memoryCacheKey: MemoryCache.Key?,
 
-    /** @see Builder.fetcher */
-    val fetcher: Pair<Fetcher<*>, Class<*>>?,
+    /** @see Builder.diskCacheKey */
+    val diskCacheKey: String?,
 
-    /** @see Builder.decoder */
-    val decoder: Decoder?,
+    /** @see Builder.fetcherFactory */
+    val fetcherFactory: Pair<Fetcher.Factory<*>, Class<*>>?,
+
+    /** @see Builder.decoderFactory */
+    val decoderFactory: Decoder.Factory?,
 
     /** @see Builder.setDynamicEntity */
     val dynamicEntityBuilder: DynamicEntityBuilder?,
 
     /** @see Builder.headers */
     val headers: Headers,
+
+    /** @see Builder.tags */
+    val tags: Tags,
 
     /** @see Builder.parameters */
     val parameters: Parameters,
@@ -70,8 +77,14 @@ class SVGARequest private constructor(
     /** @see Builder.sizeResolver */
     val sizeResolver: SizeResolver,
 
-    /** @see Builder.dispatcher */
-    val dispatcher: CoroutineDispatcher,
+    /** @see Builder.interceptorDispatcher */
+    val interceptorDispatcher: CoroutineDispatcher,
+
+    /** @see Builder.fetcherDispatcher */
+    val fetcherDispatcher: CoroutineDispatcher,
+
+    /** @see Builder.decoderDispatcher */
+    val decoderDispatcher: CoroutineDispatcher,
 
     /** @see Builder.precision */
     val precision: Precision,
@@ -96,30 +109,38 @@ class SVGARequest private constructor(
 ) {
     @JvmOverloads
     fun newBuilder(context: Context = this.context) = Builder(this, context)
-
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        return other is SVGARequest &&
-                context == other.context &&
-                data == other.data &&
-                target == other.target &&
-                listener == other.listener &&
-                memoryCacheKey == other.memoryCacheKey &&
-                fetcher == other.fetcher &&
-                decoder == other.decoder &&
-                dynamicEntityBuilder == other.dynamicEntityBuilder &&
-                headers == other.headers &&
-                parameters == other.parameters &&
-                lifecycle == other.lifecycle &&
-                sizeResolver == other.sizeResolver &&
-                dispatcher == other.dispatcher &&
-                precision == other.precision &&
-                allowHardware == other.allowHardware &&
-                memoryCachePolicy == other.memoryCachePolicy &&
-                diskCachePolicy == other.diskCachePolicy &&
-                networkCachePolicy == other.networkCachePolicy &&
-                defined == other.defined &&
-                defaults == other.defaults
+        if (javaClass != other?.javaClass) return false
+
+        other as SVGARequest
+
+        if (context != other.context) return false
+        if (data != other.data) return false
+        if (target != other.target) return false
+        if (listener != other.listener) return false
+        if (memoryCacheKey != other.memoryCacheKey) return false
+        if (diskCacheKey != other.diskCacheKey) return false
+        if (fetcherFactory != other.fetcherFactory) return false
+        if (decoderFactory != other.decoderFactory) return false
+        if (dynamicEntityBuilder != other.dynamicEntityBuilder) return false
+        if (headers != other.headers) return false
+        if (tags != other.tags) return false
+        if (parameters != other.parameters) return false
+        if (lifecycle != other.lifecycle) return false
+        if (sizeResolver != other.sizeResolver) return false
+        if (interceptorDispatcher != other.interceptorDispatcher) return false
+        if (fetcherDispatcher != other.fetcherDispatcher) return false
+        if (decoderDispatcher != other.decoderDispatcher) return false
+        if (precision != other.precision) return false
+        if (allowHardware != other.allowHardware) return false
+        if (memoryCachePolicy != other.memoryCachePolicy) return false
+        if (diskCachePolicy != other.diskCachePolicy) return false
+        if (networkCachePolicy != other.networkCachePolicy) return false
+        if (defined != other.defined) return false
+        if (defaults != other.defaults) return false
+
+        return true
     }
 
     override fun hashCode(): Int {
@@ -128,14 +149,18 @@ class SVGARequest private constructor(
         result = 31 * result + (target?.hashCode() ?: 0)
         result = 31 * result + (listener?.hashCode() ?: 0)
         result = 31 * result + (memoryCacheKey?.hashCode() ?: 0)
-        result = 31 * result + (fetcher?.hashCode() ?: 0)
-        result = 31 * result + (decoder?.hashCode() ?: 0)
+        result = 31 * result + (diskCacheKey?.hashCode() ?: 0)
+        result = 31 * result + (fetcherFactory?.hashCode() ?: 0)
+        result = 31 * result + (decoderFactory?.hashCode() ?: 0)
         result = 31 * result + (dynamicEntityBuilder?.hashCode() ?: 0)
         result = 31 * result + headers.hashCode()
+        result = 31 * result + tags.hashCode()
         result = 31 * result + parameters.hashCode()
         result = 31 * result + lifecycle.hashCode()
         result = 31 * result + sizeResolver.hashCode()
-        result = 31 * result + dispatcher.hashCode()
+        result = 31 * result + interceptorDispatcher.hashCode()
+        result = 31 * result + fetcherDispatcher.hashCode()
+        result = 31 * result + decoderDispatcher.hashCode()
         result = 31 * result + precision.hashCode()
         result = 31 * result + allowHardware.hashCode()
         result = 31 * result + memoryCachePolicy.hashCode()
@@ -147,13 +172,9 @@ class SVGARequest private constructor(
     }
 
     override fun toString(): String {
-        return "SVGARequest(context=$context, data=$data, target=$target, listener=$listener, " +
-                "memoryCacheKey=$memoryCacheKey, fetcher=$fetcher, decoder=$decoder, headers=$headers, parameters=$parameters, " +
-                "lifecycle=$lifecycle, sizeResolver=$sizeResolver, dispatcher=$dispatcher, " +
-                "precision=$precision, allowHardware=$allowHardware, memoryCachePolicy=$memoryCachePolicy, " +
-                "diskCachePolicy=$diskCachePolicy, networkCachePolicy=$networkCachePolicy, " +
-                "defined=$defined, defaults=$defaults)"
+        return "SVGARequest(context=$context, data=$data, target=$target, listener=$listener, memoryCacheKey=$memoryCacheKey, diskCacheKey=$diskCacheKey, fetcherFactory=$fetcherFactory, decoderFactory=$decoderFactory, dynamicEntityBuilder=$dynamicEntityBuilder, headers=$headers, tags=$tags, parameters=$parameters, lifecycle=$lifecycle, sizeResolver=$sizeResolver, interceptorDispatcher=$interceptorDispatcher, fetcherDispatcher=$fetcherDispatcher, decoderDispatcher=$decoderDispatcher, precision=$precision, allowHardware=$allowHardware, memoryCachePolicy=$memoryCachePolicy, diskCachePolicy=$diskCachePolicy, networkCachePolicy=$networkCachePolicy, defined=$defined, defaults=$defaults)"
     }
+
 
     /**
      * A set of callbacks for an [SVGARequest].
@@ -197,48 +218,62 @@ class SVGARequest private constructor(
         private var target: Target?
         private var listener: Listener?
         private var memoryCacheKey: MemoryCache.Key?
-        private var fetcher: Pair<Fetcher<*>, Class<*>>?
-        private var decoder: Decoder?
+        private var diskCacheKey: String?
+
+        private var fetcherFactory: Pair<Fetcher.Factory<*>, Class<*>>?
+        private var decoderFactory: Decoder.Factory?
         private var dynamicEntityBuilder: DynamicEntityBuilder?
 
         private var headers: Headers.Builder?
+        private var tags: MutableMap<Class<*>, Any>?
+
         private var parameters: Parameters.Builder?
 
         private var lifecycle: Lifecycle?
         private var sizeResolver: SizeResolver?
 
-        private var dispatcher: CoroutineDispatcher?
         private var precision: Precision?
         private var allowHardware: Boolean?
         private var memoryCachePolicy: CachePolicy?
         private var diskCachePolicy: CachePolicy?
         private var networkCachePolicy: CachePolicy?
 
+        private var interceptorDispatcher: CoroutineDispatcher?
+        private var fetcherDispatcher: CoroutineDispatcher?
+        private var decoderDispatcher: CoroutineDispatcher?
+
         private var resolvedLifecycle: Lifecycle?
         private var resolvedSizeResolver: SizeResolver?
 
         constructor(context: Context) {
             this.context = context
-            defaults = DefaultRequestOptions.INSTANCE
+            defaults = DEFAULT_REQUEST_OPTIONS
             data = null
             target = null
             listener = null
             memoryCacheKey = null
-            fetcher = null
-            decoder = null
+            diskCacheKey = null
+            fetcherFactory = null
+            decoderFactory = null
             dynamicEntityBuilder = null
             headers = null
+            tags = null
             parameters = null
             lifecycle = null
             sizeResolver = null
-            dispatcher = null
             precision = null
             allowHardware = null
             memoryCachePolicy = null
             diskCachePolicy = null
             networkCachePolicy = null
+            interceptorDispatcher = null
+            fetcherDispatcher = null
+            decoderDispatcher = null
             resolvedLifecycle = null
             resolvedSizeResolver = null
+            interceptorDispatcher = null
+            fetcherDispatcher = null
+            decoderDispatcher = null
         }
 
         @JvmOverloads
@@ -249,20 +284,23 @@ class SVGARequest private constructor(
             target = request.target
             listener = request.listener
             memoryCacheKey = request.memoryCacheKey
-            fetcher = request.fetcher
-            decoder = request.decoder
+            diskCacheKey = request.diskCacheKey
+            fetcherFactory = request.fetcherFactory
+            decoderFactory = request.decoderFactory
             dynamicEntityBuilder = request.dynamicEntityBuilder
             headers = request.headers.newBuilder()
+            tags = request.tags.asMap().toMutableMap()
             parameters = request.parameters.newBuilder()
             lifecycle = request.defined.lifecycle
             sizeResolver = request.defined.sizeResolver
-            dispatcher = request.defined.dispatcher
             precision = request.defined.precision
             allowHardware = request.defined.allowHardware
             memoryCachePolicy = request.defined.memoryCachePolicy
             diskCachePolicy = request.defined.diskCachePolicy
             networkCachePolicy = request.defined.networkCachePolicy
-
+            interceptorDispatcher = request.defined.interceptorDispatcher
+            fetcherDispatcher = request.defined.fetcherDispatcher
+            decoderDispatcher = request.defined.decoderDispatcher
             // If the context changes, recompute the resolved values.
             if (request.context === context) {
                 resolvedLifecycle = request.lifecycle
@@ -303,6 +341,15 @@ class SVGARequest private constructor(
         }
 
         /**
+         * Set the disk cache key for this request.
+         *
+         * If this is null or is not set, the [ImageLoader] will compute a disk cache key.
+         */
+        fun diskCacheKey(key: String?) = apply {
+            this.diskCacheKey = key
+        }
+
+        /**
          * Convenience function to create and set the [Listener].
          */
         inline fun listener(
@@ -328,10 +375,32 @@ class SVGARequest private constructor(
         }
 
         /**
-         * Set the [CoroutineDispatcher] to launch the request.
+         * @see ImageLoader.Builder.dispatcher
          */
         fun dispatcher(dispatcher: CoroutineDispatcher) = apply {
-            this.dispatcher = dispatcher
+            this.fetcherDispatcher = dispatcher
+            this.decoderDispatcher = dispatcher
+        }
+
+        /**
+         * @see ImageLoader.Builder.interceptorDispatcher
+         */
+        fun interceptorDispatcher(dispatcher: CoroutineDispatcher) = apply {
+            this.interceptorDispatcher = dispatcher
+        }
+
+        /**
+         * @see ImageLoader.Builder.fetcherDispatcher
+         */
+        fun fetcherDispatcher(dispatcher: CoroutineDispatcher) = apply {
+            this.fetcherDispatcher = dispatcher
+        }
+
+        /**
+         * @see ImageLoader.Builder.decoderDispatcher
+         */
+        fun decoderDispatcher(dispatcher: CoroutineDispatcher) = apply {
+            this.decoderDispatcher = dispatcher
         }
 
 
@@ -343,7 +412,7 @@ class SVGARequest private constructor(
         /**
          * Set the requested width/height.
          */
-        fun size(@Px width: Int, @Px height: Int) = size(PixelSize(width, height))
+        fun size(@Px width: Int, @Px height: Int) = size(Size(width, height))
 
         /**
          * Set the requested width/height.
@@ -374,29 +443,32 @@ class SVGARequest private constructor(
         }
 
         /**
-         * Use [fetcher] to handle fetching any image data.
+         * Use [factory] to handle fetching any image data.
          *
-         * If this is null or is not set the [ImageLoader] will find an applicable fetcher in its [ComponentRegistry].
+         * If this is null or is not set the [ImageLoader] will find an applicable fetcher in its
+         * [ComponentRegistry].
          */
-        inline fun <reified T : Any> fetcher(fetcher: Fetcher<T>) = fetcher(fetcher, T::class.java)
+        inline fun <reified T : Any> fetcherFactory(factory: Fetcher.Factory<T>) =
+            fetcherFactory(factory, T::class.java)
 
         /**
-         * Use [fetcher] to handle fetching any image data.
+         * Use [factory] to handle fetching any image data.
          *
-         * If this is null or is not set the [ImageLoader] will find an applicable fetcher in its [ComponentRegistry].
+         * If this is null or is not set the [ImageLoader] will find an applicable fetcher in its
+         * [ComponentRegistry].
          */
-        @PublishedApi
-        internal fun <T : Any> fetcher(fetcher: Fetcher<T>, type: Class<T>) = apply {
-            this.fetcher = fetcher to type
+        fun <T : Any> fetcherFactory(factory: Fetcher.Factory<T>, type: Class<T>) = apply {
+            this.fetcherFactory = factory to type
         }
 
         /**
-         * Use [decoder] to handle decoding any image data.
+         * Use [factory] to handle decoding any image data.
          *
-         * If this is null or is not set the [ImageLoader] will find an applicable decoder in its [ComponentRegistry].
+         * If this is null or is not set the [ImageLoader] will find an applicable decoder in its
+         * [ComponentRegistry].
          */
-        fun decoder(decoder: Decoder) = apply {
-            this.decoder = decoder
+        fun decoderFactory(factory: Decoder.Factory) = apply {
+            this.decoderFactory = factory
         }
 
         fun setDynamicEntity(builder: DynamicEntityBuilder.() -> Unit) = apply {
@@ -468,6 +540,31 @@ class SVGARequest private constructor(
         fun removeHeader(name: String) = apply {
             this.headers = this.headers?.removeAll(name)
         }
+
+        /**
+         * Attach [tag] to this request using [T] as the key.
+         */
+        inline fun <reified T : Any> tag(tag: T?) = tag(T::class.java, tag)
+
+        /**
+         * Attach [tag] to this request using [type] as the key.
+         */
+        fun <T : Any> tag(type: Class<in T>, tag: T?) = apply {
+            if (tag == null) {
+                this.tags?.remove(type)
+            } else {
+                val tags = this.tags ?: mutableMapOf<Class<*>, Any>().also { this.tags = it }
+                tags[type] = type.cast(tag)!!
+            }
+        }
+
+        /**
+         * Set the tags for this request.
+         */
+        fun tags(tags: Tags) = apply {
+            this.tags = tags.asMap().toMutableMap()
+        }
+
 
         /**
          * Set the parameters for this request.
@@ -558,14 +655,18 @@ class SVGARequest private constructor(
                 target = target,
                 listener = listener,
                 memoryCacheKey = memoryCacheKey,
-                fetcher = fetcher,
-                decoder = decoder,
+                diskCacheKey = diskCacheKey,
+                fetcherFactory = fetcherFactory,
+                decoderFactory = decoderFactory,
                 dynamicEntityBuilder = dynamicEntityBuilder,
                 headers = headers?.build().orEmpty(),
+                tags = tags?.let(Tags::from).orEmpty(),
                 parameters = parameters?.build().orEmpty(),
                 lifecycle = lifecycle ?: resolvedLifecycle ?: resolveLifecycle(),
                 sizeResolver = sizeResolver ?: resolvedSizeResolver ?: resolveSizeResolver(),
-                dispatcher = dispatcher ?: defaults.dispatcher,
+                interceptorDispatcher = interceptorDispatcher ?: defaults.interceptorDispatcher,
+                fetcherDispatcher = fetcherDispatcher ?: defaults.fetcherDispatcher,
+                decoderDispatcher = decoderDispatcher ?: defaults.decoderDispatcher,
                 precision = precision ?: defaults.precision,
                 allowHardware = allowHardware ?: defaults.allowHardware,
                 memoryCachePolicy = memoryCachePolicy ?: defaults.memoryCachePolicy,
@@ -574,7 +675,9 @@ class SVGARequest private constructor(
                 defined = DefinedRequestOptions(
                     lifecycle,
                     sizeResolver,
-                    dispatcher,
+                    interceptorDispatcher,
+                    fetcherDispatcher,
+                    decoderDispatcher,
                     precision,
                     allowHardware,
                     memoryCachePolicy,

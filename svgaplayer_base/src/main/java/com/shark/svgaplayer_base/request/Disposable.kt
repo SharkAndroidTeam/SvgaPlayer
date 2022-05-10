@@ -1,73 +1,70 @@
 package com.shark.svgaplayer_base.request
 
 import android.view.View
+import androidx.lifecycle.DefaultLifecycleObserver
 import com.shark.svgaplayer_base.target.ViewTarget
 import com.shark.svgaplayer_base.util.requestManager
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import java.util.UUID
 
 /**
- * Represents the work of an executed [SVGARequest].
+ * Represents the work of an [ImageRequest] that has been executed by an [ImageLoader].
  */
 interface Disposable {
 
     /**
-     * Returns true if the request is complete or cancelling.
+     * The most recent image request job.
+     * This field is **not immutable** and can change if the request is replayed.
+     */
+    val job: Deferred<SVGAResult>
+
+    /**
+     * Returns 'true' if this disposable's work is complete or cancelling.
      */
     val isDisposed: Boolean
 
     /**
-     * Cancels any in progress work and frees any resources associated with this request. This method is idempotent.
+     * Cancels this disposable's work and releases any held resources.
      */
     fun dispose()
-
-    /**
-     * Suspends until any in progress work completes.
-     */
-    suspend fun await()
 }
 
 /**
  * A disposable for one-shot image requests.
  */
-internal class BaseTargetDisposable(private val job: Job) : Disposable {
+internal class OneShotDisposable(
+    override val job: Deferred<SVGAResult>
+) : Disposable {
 
-    override val isDisposed
+    override val isDisposed: Boolean
         get() = !job.isActive
 
     override fun dispose() {
         if (isDisposed) return
         job.cancel()
     }
-
-    override suspend fun await() {
-        if (isDisposed) return
-        job.join()
-    }
 }
 
 /**
  * A disposable for requests that are attached to a [View].
  *
- * [ViewTargetDisposable] is not disposed until its request is detached from the view.
- * This is because requests are automatically cancelled in [View.onDetachedFromWindow] and are
- * restarted in [View.onAttachedToWindow].
+ * [ViewTarget] requests are automatically cancelled in when the view is detached
+ * and are restarted when the view is attached.
+ *
+ * [isDisposed] only returns 'true' when this disposable's request is cleared (due to
+ * [DefaultLifecycleObserver.onDestroy]) or replaced by a new request attached to the view.
  */
 internal class ViewTargetDisposable(
-    private val requestId: UUID,
-    private val target: ViewTarget<*>
+    private val view: View,
+    @Volatile override var job: Deferred<SVGAResult>
 ) : Disposable {
 
-    override val isDisposed
-        get() = target.view.requestManager.currentRequestId != requestId
+    override val isDisposed: Boolean
+        get() = view.requestManager.isDisposed(this)
 
     override fun dispose() {
         if (isDisposed) return
-        target.view.requestManager.clearCurrentRequest()
-    }
-
-    override suspend fun await() {
-        if (isDisposed) return
-        target.view.requestManager.currentRequestJob?.join()
+        view.requestManager.dispose()
     }
 }
