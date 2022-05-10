@@ -1,4 +1,4 @@
-package com.shark.svgaplayer_base.memory
+package com.shark.svgaplayer_base.request
 
 import androidx.annotation.WorkerThread
 import com.shark.svgaplayer_base.decode.Options

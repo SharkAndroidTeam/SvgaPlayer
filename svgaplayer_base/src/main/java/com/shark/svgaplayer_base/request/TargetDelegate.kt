@@ -1,15 +1,12 @@
 @file:Suppress("NOTHING_TO_INLINE")
 
-package com.shark.svgaplayer_base.memory
+package com.shark.svgaplayer_base.request
 
 import androidx.annotation.MainThread
 import com.shark.svgaplayer_base.target.PoolableViewTarget
 import com.shark.svgaplayer_base.EventListener
 import com.shark.svgaplayer_base.recycle.EmptyVideoEntityRefCounter
 import com.shark.svgaplayer_base.recycle.VideoEntityRefCounter
-import com.shark.svgaplayer_base.request.ErrorResult
-import com.shark.svgaplayer_base.request.SVGAResult
-import com.shark.svgaplayer_base.request.SuccessResult
 import com.shark.svgaplayer_base.util.Logger
 import com.shark.svgaplayer_base.util.requestManager
 import com.shark.svgaplayer_base.target.Target

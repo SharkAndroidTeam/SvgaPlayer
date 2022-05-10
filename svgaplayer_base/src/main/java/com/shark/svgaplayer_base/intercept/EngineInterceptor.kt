@@ -10,7 +10,7 @@ import com.shark.svgaplayer_base.fetch.SourceResult
 import com.shark.svgaplayer_base.memory.*
 import com.shark.svgaplayer_base.memory.MemoryCacheService
 import com.shark.svgaplayer_base.memory.RealMemoryCache
-import com.shark.svgaplayer_base.memory.RequestService
+import com.shark.svgaplayer_base.request.RequestService
 import com.shark.svgaplayer_base.memory.StrongMemoryCache
 import com.shark.svgaplayer_base.recycle.VideoEntityRefCounter
 import com.shark.svgaplayer_base.request.SVGARequest

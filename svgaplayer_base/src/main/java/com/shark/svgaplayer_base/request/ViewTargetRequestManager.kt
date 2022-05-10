@@ -1,10 +1,9 @@
-package com.shark.svgaplayer_base.memory
+package com.shark.svgaplayer_base.request
 
 import android.view.View
 import androidx.annotation.AnyThread
 import androidx.annotation.MainThread
 import androidx.collection.SimpleArrayMap
-import com.shark.svgaplayer_base.request.SVGAResult
 import com.shark.svgaplayer_base.util.isMainThread
 import com.opensource.svgaplayer.SVGAVideoEntity
 import kotlinx.coroutines.Dispatchers

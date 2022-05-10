@@ -1,11 +1,10 @@
-package com.shark.svgaplayer_base.memory
+package com.shark.svgaplayer_base.request
 
 import androidx.annotation.MainThread
 import androidx.lifecycle.LifecycleObserver
 import com.shark.svgaplayer_base.EventListener
 import com.shark.svgaplayer_base.SvgaLoader
 import com.shark.svgaplayer_base.recycle.VideoEntityRefCounter
-import com.shark.svgaplayer_base.request.SVGARequest
 import com.shark.svgaplayer_base.target.PoolableViewTarget
 import com.shark.svgaplayer_base.target.ViewTarget
 import com.shark.svgaplayer_base.target.Target

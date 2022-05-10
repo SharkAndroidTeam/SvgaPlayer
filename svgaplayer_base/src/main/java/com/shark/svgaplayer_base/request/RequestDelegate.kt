@@ -1,4 +1,4 @@
-package com.shark.svgaplayer_base.memory
+package com.shark.svgaplayer_base.request
 
 import androidx.annotation.MainThread
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -6,7 +6,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.shark.svgaplayer_base.SvgaLoader
-import com.shark.svgaplayer_base.request.SVGARequest
 import com.shark.svgaplayer_base.util.metadata
 import kotlinx.coroutines.Job
 

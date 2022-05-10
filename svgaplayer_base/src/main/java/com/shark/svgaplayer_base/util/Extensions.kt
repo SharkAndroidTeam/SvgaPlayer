@@ -19,8 +19,8 @@ import android.webkit.MimeTypeMap
 import androidx.core.view.ViewCompat
 import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat
 import com.shark.svgaplayer_base.memory.MemoryCache
-import com.shark.svgaplayer_base.memory.TargetDelegate
-import com.shark.svgaplayer_base.memory.ViewTargetRequestManager
+import com.shark.svgaplayer_base.request.TargetDelegate
+import com.shark.svgaplayer_base.request.ViewTargetRequestManager
 import com.shark.svgaplayer_base.recycle.VideoEntityRefCounter
 import com.shark.svgaplayer_base.request.Parameters
 import com.shark.svgaplayer_base.request.SVGAResult
