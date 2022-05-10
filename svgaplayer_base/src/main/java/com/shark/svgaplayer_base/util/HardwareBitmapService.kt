@@ -1,15 +1,13 @@
-package com.shark.svgaplayer_base.memory
+package com.shark.svgaplayer_base.util
 
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.Build.VERSION.SDK_INT
 import android.util.Log
 import androidx.annotation.WorkerThread
-import com.shark.svgaplayer_base.memory.HardwareBitmapBlocklist.IS_BLOCKED
+import com.shark.svgaplayer_base.util.HardwareBitmapBlocklist.IS_BLOCKED
 import com.shark.svgaplayer_base.size.PixelSize
 import com.shark.svgaplayer_base.size.Size
-import com.shark.svgaplayer_base.util.Logger
-import com.shark.svgaplayer_base.util.log
 import java.io.File
 
 /** Decides if a request can use [Bitmap.Config.HARDWARE]. */
