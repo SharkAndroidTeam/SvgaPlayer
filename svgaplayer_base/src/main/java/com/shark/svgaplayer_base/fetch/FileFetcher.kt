@@ -3,6 +3,7 @@ package com.shark.svgaplayer_base.fetch
 import android.webkit.MimeTypeMap
 import com.shark.svgaplayer_base.SvgaLoader
 import com.shark.svgaplayer_base.decode.DataSource
+import com.shark.svgaplayer_base.decode.SVGASource
 import com.shark.svgaplayer_base.request.Options
 import com.shark.svgaplayer_base.size.Size
 import com.shark.svgaplayer_base.util.md5Key
@@ -28,7 +29,7 @@ class FileFetcher(private val data: File) : Fetcher {
 
     override suspend fun fetch(): FetchResult? {
         return SourceResult(
-            source = data.source().buffer(),
+            source = SVGASource(file = data.toOkioPath()),
             mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(data.extension),
             dataSource = DataSource.DISK
         )

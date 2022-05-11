@@ -83,11 +83,10 @@ internal class MemoryCacheService(
         return SuccessResult(
             drawable = SVGADrawable(cacheValue.entity, dynamicEntity),
             request = request,
-            metadata = SVGAResult.Metadata(
-                memoryCacheKey = cacheKey,
-                isSampled = cacheValue.isSampled,
-                dataSource = DataSource.MEMORY_CACHE,
-            )
+            dataSource = DataSource.MEMORY_CACHE,
+            memoryCacheKey = cacheKey,
+            diskCacheKey = cacheValue.diskCacheKey,
+            isSampled = cacheValue.isSampled,
         )
     }
 

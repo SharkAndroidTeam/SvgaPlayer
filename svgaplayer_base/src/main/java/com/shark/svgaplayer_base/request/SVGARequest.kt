@@ -206,7 +206,7 @@ class SVGARequest private constructor(
          * Called if the request completes successfully.
          */
         @MainThread
-        fun onSuccess(request: SVGARequest, metadata: SVGAResult.Metadata) {
+        fun onSuccess(request: SVGARequest, result: SuccessResult) {
         }
     }
 
@@ -356,15 +356,15 @@ class SVGARequest private constructor(
             crossinline onStart: (request: SVGARequest) -> Unit = {},
             crossinline onCancel: (request: SVGARequest) -> Unit = {},
             crossinline onError: (request: SVGARequest, throwable: Throwable) -> Unit = { _, _ -> },
-            crossinline onSuccess: (request: SVGARequest, metadata: SVGAResult.Metadata) -> Unit = { _, _ -> }
+            crossinline onSuccess: (request: SVGARequest, result: SuccessResult) -> Unit = { _, _ -> }
         ) = listener(object : Listener {
             override fun onStart(request: SVGARequest) = onStart(request)
             override fun onCancel(request: SVGARequest) = onCancel(request)
             override fun onError(request: SVGARequest, throwable: Throwable) =
                 onError(request, throwable)
 
-            override fun onSuccess(request: SVGARequest, metadata: SVGAResult.Metadata) =
-                onSuccess(request, metadata)
+            override fun onSuccess(request: SVGARequest, result: SuccessResult) =
+                onSuccess(request, result)
         })
 
         /**

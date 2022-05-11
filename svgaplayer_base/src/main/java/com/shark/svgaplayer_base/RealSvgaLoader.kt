@@ -200,13 +200,12 @@ internal class RealSvgaLoader(
         eventListener: EventListener
     ) {
         val request = result.request
-        val metadata = result.metadata
-        val dataSource = metadata.dataSource
+        val dataSource = result.dataSource
         logger?.log(TAG, Log.INFO) { "Successful (${dataSource.name}) - ${request.data}" }
 //        transition(result, target, eventListener) { target?.onSuccess(result.drawable) }
         target?.onSuccess(result.drawable)
-        eventListener.onSuccess(request, metadata)
-        request.listener?.onSuccess(request, metadata)
+        eventListener.onSuccess(request, result)
+        request.listener?.onSuccess(request, result)
     }
 
     private fun onError(

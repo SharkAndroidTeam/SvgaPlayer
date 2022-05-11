@@ -1,9 +1,6 @@
 package com.shark.svgaplayer_base.intercept
 
-import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import android.util.Log
 import com.opensource.svgaplayer.SVGADrawable
 import com.opensource.svgaplayer.SVGADynamicEntity
 import com.opensource.svgaplayer.SVGAVideoEntity
@@ -12,24 +9,17 @@ import com.shark.svgaplayer_base.EventListener
 import com.shark.svgaplayer_base.SvgaLoader
 import com.shark.svgaplayer_base.decode.DataSource
 import com.shark.svgaplayer_base.decode.DecodeResult
+import com.shark.svgaplayer_base.decode.FileSVGASource
 import com.shark.svgaplayer_base.fetch.FetchResult
 import com.shark.svgaplayer_base.fetch.Fetcher
 import com.shark.svgaplayer_base.fetch.SVGAEntityResult
 import com.shark.svgaplayer_base.fetch.SourceResult
 import com.shark.svgaplayer_base.memory.*
-import com.shark.svgaplayer_base.recycle.VideoEntityRefCounter
 import com.shark.svgaplayer_base.request.*
-import com.shark.svgaplayer_base.request.RequestService
-import com.shark.svgaplayer_base.request.SVGAResult.Metadata
-import com.shark.svgaplayer_base.size.OriginalSize
-import com.shark.svgaplayer_base.size.Size
 import com.shark.svgaplayer_base.util.*
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.Call
-import kotlin.coroutines.coroutineContext
-import kotlin.math.abs
 
 /** The last interceptor in the chain which executes the [SVGARequest]. */
 internal class EngineInterceptor(
@@ -77,10 +67,10 @@ internal class EngineInterceptor(
             return withContext(request.fetcherDispatcher) {
                 // Fetch and decode the image.
                 val result =
-                    execute(request, mappedData, options, cacheKey?.key ?: "", eventListener)
+                    execute(request, mappedData, options, eventListener)
 
                 // Write the result to the memory cache.
-                memoryCacheService.setCacheValue(cacheKey, request, result)
+                val isCached = memoryCacheService.setCacheValue(cacheKey, request, result)
 
                 // Return the result.
                 val dynamicEntity = request.dynamicEntityBuilder?.create(callFactory, options)
@@ -88,11 +78,10 @@ internal class EngineInterceptor(
                 SuccessResult(
                     drawable = SVGADrawable(result.videoEntity, dynamicEntity),
                     request = request,
-                    metadata = Metadata(
-                        memoryCacheKey = cacheKey,
-                        isSampled = result.isSampled,
-                        dataSource = DataSource.MEMORY_CACHE,
-                    )
+                    dataSource = result.dataSource,
+                    memoryCacheKey = cacheKey.takeIf { isCached },
+                    diskCacheKey = result.diskCacheKey,
+                    isSampled = result.isSampled,
                 )
             }
         } catch (throwable: Throwable) {
@@ -109,10 +98,8 @@ internal class EngineInterceptor(
         request: SVGARequest,
         mappedData: Any,
         _options: Options,
-        cacheKey: String,
         eventListener: EventListener
     ): ExecuteResult {
-        var options = _options
         var components = imageLoader.components
         var fetchResult: FetchResult? = null
         val executeResult = try {
@@ -124,41 +111,47 @@ internal class EngineInterceptor(
             }
 
             // Fetch the data.
-            fetchResult = fetch(components, request, mappedData, options, eventListener)
+            fetchResult = fetch(components, request, mappedData, _options, eventListener)
+
             val result = when (fetchResult) {
-                is SVGAEntityResult -> fetchResult
+                is SVGAEntityResult -> {
+                    ExecuteResult(
+                        videoEntity = fetchResult.videoEntity,
+                        isSampled = fetchResult.isSampled,
+                        dataSource = fetchResult.dataSource,
+                        diskCacheKey = null
+                    )
+                }
                 is SourceResult -> {
                     val decodeResult: DecodeResult
                     var searchIndex = 0
                     while (true) {
                         val pair =
-                            components.newDecoder(fetchResult, options, imageLoader, searchIndex)
+                            components.newDecoder(fetchResult, _options, imageLoader, searchIndex)
                         checkNotNull(pair) { "Unable to create a decoder that supports: $mappedData" }
                         val decoder = pair.first
                         searchIndex = pair.second + 1
 
-                        eventListener.decodeStart(request, decoder, options)
+                        eventListener.decodeStart(request, decoder, _options)
                         val result = decoder.decode()
-                        eventListener.decodeEnd(request, decoder, options, result)
+                        eventListener.decodeEnd(request, decoder, _options, result)
 
                         if (result != null) {
                             decodeResult = result
                             break
                         }
                     }
-                    SVGAEntityResult(
+                    ExecuteResult(
                         videoEntity = decodeResult.entity,
                         isSampled = decodeResult.isSampled,
-                        dataSource = fetchResult.dataSource
+                        dataSource = fetchResult.dataSource,
+                        diskCacheKey = (fetchResult.source as? FileSVGASource)?.diskCacheKey
                     )
                 }
             }
-            ExecuteResult(
-                videoEntity = result.videoEntity,
-                isSampled = result.isSampled,
-                dataSource = result.dataSource,
-                diskCacheKey = cacheKey
-            )
+
+
+            result
         } finally {
             // Ensure the fetch result's source is always closed.
             (fetchResult as? SourceResult)?.source?.closeQuietly()

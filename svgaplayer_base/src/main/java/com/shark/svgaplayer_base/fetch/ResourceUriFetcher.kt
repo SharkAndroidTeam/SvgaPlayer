@@ -7,6 +7,8 @@ import android.util.TypedValue
 import android.webkit.MimeTypeMap
 import com.shark.svgaplayer_base.SvgaLoader
 import com.shark.svgaplayer_base.decode.DataSource
+import com.shark.svgaplayer_base.decode.ResourceMetadata
+import com.shark.svgaplayer_base.decode.SVGASource
 import com.shark.svgaplayer_base.request.Options
 import com.shark.svgaplayer_base.size.Size
 import com.shark.svgaplayer_base.util.getMimeTypeFromUrl
@@ -15,13 +17,16 @@ import com.shark.svgaplayer_base.util.nightMode
 import okio.buffer
 import okio.source
 
-internal class ResourceUriFetcher(private val data: Uri,
-                                  private val options: Options) : Fetcher {
+internal class ResourceUriFetcher(
+    private val data: Uri,
+    private val options: Options
+) : Fetcher {
 
 
     override suspend fun fetch(): FetchResult? {
         // Expected format: android.resource://example.package.name/12345678
-        val packageName = data.authority?.takeIf { it.isNotBlank() } ?: throwInvalidUriException(data)
+        val packageName =
+            data.authority?.takeIf { it.isNotBlank() } ?: throwInvalidUriException(data)
         val resId = data.pathSegments.lastOrNull()?.toIntOrNull() ?: throwInvalidUriException(data)
 
         val context = options.context
@@ -34,8 +39,14 @@ internal class ResourceUriFetcher(private val data: Uri,
         val entryName = path.substring(path.lastIndexOf('/'))
         val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromUrl(entryName)
 
+        val typedValue = TypedValue()
+        val inputStream = resources.openRawResource(resId, typedValue)
         return SourceResult(
-            source = resources.openRawResource(resId).source().buffer(),
+            SVGASource(
+                source = inputStream.source().buffer(),
+                context = context,
+                metadata = ResourceMetadata(packageName, resId, typedValue.density)
+            ),
             mimeType = mimeType,
             dataSource = DataSource.MEMORY
         )

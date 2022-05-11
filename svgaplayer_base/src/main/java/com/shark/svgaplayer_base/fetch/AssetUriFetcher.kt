@@ -5,7 +5,9 @@ import android.content.Context
 import android.net.Uri
 import android.webkit.MimeTypeMap
 import com.shark.svgaplayer_base.SvgaLoader
+import com.shark.svgaplayer_base.decode.AssetMetadata
 import com.shark.svgaplayer_base.decode.DataSource
+import com.shark.svgaplayer_base.decode.SVGASource
 import com.shark.svgaplayer_base.request.Options
 import com.shark.svgaplayer_base.size.Size
 import com.shark.svgaplayer_base.util.firstPathSegment
@@ -32,7 +34,11 @@ class AssetUriFetcher(private val data: Uri,
         val path = data.pathSegments.drop(1).joinToString("/")
 
         return SourceResult(
-            source = options.context.assets.open(path).source().buffer(),
+            source = SVGASource(
+                source = options.context.assets.open(path).source().buffer(),
+                context = options.context,
+                metadata = AssetMetadata(data.lastPathSegment!!)
+            ),
             mimeType = MimeTypeMap.getSingleton().getMimeTypeFromUrl(path),
             dataSource = DataSource.DISK
         )

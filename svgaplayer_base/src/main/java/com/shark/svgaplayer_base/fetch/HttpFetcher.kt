@@ -7,6 +7,7 @@ import androidx.annotation.VisibleForTesting
 import com.shark.svgaplayer_base.SvgaLoader
 import com.shark.svgaplayer_base.annotation.ExperimentalCoilApi
 import com.shark.svgaplayer_base.decode.DataSource
+import com.shark.svgaplayer_base.decode.SVGASource
 import com.shark.svgaplayer_base.request.Options
 import com.shark.svgaplayer_base.disk.DiskCache
 import com.shark.svgaplayer_base.network.CacheResponse
@@ -43,18 +44,19 @@ internal class HttpUriFetcher(
                 // Always return cached images with empty metadata as they were likely added manually.
                 if (fileSystem.metadata(snapshot.metadata).size == 0L) {
                     return SourceResult(
-                        source = snapshot.toBufferSource(),
-                        mimeType = getMimeType(this.url, null),
+                        source = snapshot.toSVGASource(),
+                        mimeType = getMimeType(url, null),
                         dataSource = DataSource.DISK
                     )
                 }
 
                 // Return the candidate from the cache if it is eligible.
                 if (respectCacheHeaders) {
-                    cacheStrategy = CacheStrategy.Factory(newRequest(), snapshot.toCacheResponse()).compute()
+                    cacheStrategy =
+                        CacheStrategy.Factory(newRequest(), snapshot.toCacheResponse()).compute()
                     if (cacheStrategy.networkRequest == null && cacheStrategy.cacheResponse != null) {
                         return SourceResult(
-                            source = snapshot.toBufferSource(),
+                            source = snapshot.toSVGASource(),
                             mimeType = getMimeType(url, cacheStrategy.cacheResponse.contentType),
                             dataSource = DataSource.DISK
                         )
@@ -62,7 +64,7 @@ internal class HttpUriFetcher(
                 } else {
                     // Skip checking the cache headers if the option is disabled.
                     return SourceResult(
-                        source = snapshot.toBufferSource(),
+                        source = snapshot.toSVGASource(),
                         mimeType = getMimeType(url, snapshot.toCacheResponse()?.contentType),
                         dataSource = DataSource.DISK
                     )
@@ -86,7 +88,7 @@ internal class HttpUriFetcher(
                 )
                 if (snapshot != null) {
                     return SourceResult(
-                        source = snapshot.toBufferSource(),
+                        source = snapshot.toSVGASource(),
                         mimeType = getMimeType(this.url, snapshot.toCacheResponse()?.contentType),
                         dataSource = DataSource.NETWORK
                     )
@@ -95,8 +97,8 @@ internal class HttpUriFetcher(
                 // If we failed to read a new snapshot then read the response body if it's not empty.
                 if (responseBody.contentLength() > 0) {
                     return SourceResult(
-                        source = responseBody.toBufferSource(),
-                        mimeType = getMimeType(this.url?:"", responseBody.contentType()),
+                        source = responseBody.toSVGASource(),
+                        mimeType = getMimeType(this.url, responseBody.contentType()),
                         dataSource = response.toDataSource()
                     )
                 } else {
@@ -107,7 +109,7 @@ internal class HttpUriFetcher(
                     responseBody = response.requireBody()
 
                     return SourceResult(
-                        source = responseBody.toBufferSource(),
+                        source = responseBody.toSVGASource(),
                         mimeType = getMimeType(this.url, responseBody.contentType()),
                         dataSource = response.toDataSource()
                     )
@@ -116,13 +118,13 @@ internal class HttpUriFetcher(
                 response.closeQuietly()
                 throw e
             }
-        }catch (e: Exception) {
+        } catch (e: Exception) {
             snapshot?.closeQuietly()
             throw e
         }
     }
 
-    private val diskCacheKey get() = url ?: ""
+    private val diskCacheKey get() = options.diskCacheKey ?: url
 
     private val fileSystem get() = diskCache.value!!.fileSystem
 
@@ -215,7 +217,7 @@ internal class HttpUriFetcher(
 
     private suspend fun executeNetworkRequest(request: Request): Response {
         val response = if (isMainThread()) {
-            if (options?.networkCachePolicy?.readEnabled == true) {
+            if (options.networkCachePolicy.readEnabled) {
                 // Prevent executing requests on the main thread that could block due to a
                 // networking operation.
                 throw NetworkOnMainThreadException()
@@ -265,14 +267,13 @@ internal class HttpUriFetcher(
         }
     }
 
-    private fun DiskCache.Snapshot.toBufferSource(): BufferedSource {
-        return fileSystem.source(data).buffer()
+    private fun DiskCache.Snapshot.toSVGASource(): SVGASource {
+        return SVGASource(data, fileSystem, diskCacheKey, this)
     }
 
-    private fun ResponseBody.toBufferSource(): BufferedSource {
-        return source()
+    private fun ResponseBody.toSVGASource(): SVGASource {
+        return SVGASource(source(), options.context)
     }
-
 
     private fun Response.toDataSource(): DataSource {
         return if (networkResponse != null) DataSource.NETWORK else DataSource.DISK
@@ -290,7 +291,13 @@ internal class HttpUriFetcher(
 
         override fun create(data: Uri, options: Options, imageLoader: SvgaLoader): Fetcher? {
             if (!isApplicable(data)) return null
-            return HttpUriFetcher(data.toString(), options, callFactory, diskCache, respectCacheHeaders)
+            return HttpUriFetcher(
+                data.toString(),
+                options,
+                callFactory,
+                diskCache,
+                respectCacheHeaders
+            )
         }
 
         private fun isApplicable(data: Uri): Boolean {

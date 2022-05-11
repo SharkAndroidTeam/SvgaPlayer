@@ -10,6 +10,7 @@ import com.shark.svgaplayer_base.fetch.FetchResult
 import com.shark.svgaplayer_base.fetch.Fetcher
 import com.shark.svgaplayer_base.request.SVGARequest
 import com.shark.svgaplayer_base.request.SVGAResult
+import com.shark.svgaplayer_base.request.SuccessResult
 import com.shark.svgaplayer_base.size.Size
 
 interface EventListener : SVGARequest.Listener {
@@ -65,7 +66,7 @@ interface EventListener : SVGARequest.Listener {
     override fun onError(request: SVGARequest, throwable: Throwable) {}
 
     @MainThread
-    override fun onSuccess(request: SVGARequest, metadata: SVGAResult.Metadata) {}
+    override fun onSuccess(request: SVGARequest, result: SuccessResult) {}
 
 
     /** A factory that creates new [EventListener] instances. */

@@ -23,14 +23,14 @@ import java.util.zip.ZipInputStream
  */
 @Suppress("RECEIVER_NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
 class SVGAVideoEntityDecoder(
-    private val source: Source,
+    private val source: SVGASource,
     private val options: Options,
     private val parallelismLock: Semaphore = Semaphore(Int.MAX_VALUE)
 ) : Decoder {
 
     override suspend fun decode() = parallelismLock.withPermit {
         runInterruptible {
-            decodeInterruptible(source, options.diskCacheKey ?: "")
+            decodeInterruptible(source.source(), options.diskCacheKey ?: "")
         }
     }
 
