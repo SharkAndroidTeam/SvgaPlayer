@@ -81,7 +81,7 @@ internal class SVGAVideoShapeEntity {
     var shapePath: Path? = null
 
     private fun parseType(obj: JSONObject) {
-        obj.optString("type")?.let {
+        obj.optString("type").let {
             when {
                 it.equals("shape", ignoreCase = true) -> type = Type.shape
                 it.equals("rect", ignoreCase = true) -> type = Type.rect
@@ -106,7 +106,7 @@ internal class SVGAVideoShapeEntity {
         val args = HashMap<String, Any>()
         obj.optJSONObject("args")?.let { values ->
             values.keys().forEach { key ->
-                values.get(key)?.let {
+                values.get(key).let {
                     args.put(key, it)
                 }
             }

@@ -65,16 +65,6 @@ class SVGAVideoEntityDecoder(
         val safeBufferedSource = safeSource.buffer()
         val cacheDir = createCache(key)
 
-//        val (frameWidth, frameHeight) = when (size) {
-//            is PixelSize -> {
-//                size
-//            }
-//            else -> {
-//                PixelSize(0, 0)
-//            }
-//        }
-//        Log.i("Decoder", "target size: [$frameWidth, $frameHeight]")
-
         val decodeWidth = -1
         val decodeHeight = -1
 

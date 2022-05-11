@@ -12,7 +12,7 @@ import kotlin.math.max
  * Created by cuiminghui on 2017/3/29.
  */
 
-open internal class SGVADrawer(val videoItem: SVGAVideoEntity) {
+internal open class SGVADrawer(val videoItem: SVGAVideoEntity) {
 
     val scaleInfo = SVGAScaleInfo()
 

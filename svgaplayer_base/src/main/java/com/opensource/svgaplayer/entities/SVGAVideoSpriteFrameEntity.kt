@@ -41,7 +41,7 @@ internal class SVGAVideoSpriteFrameEntity {
             arr[8] = 1.0.toFloat()
             transform.setValues(arr)
         }
-        obj.optString("clipPath")?.let { d ->
+        obj.optString("clipPath").let { d ->
             if (d.isNotEmpty()) {
                 maskPath = SVGAPathEntity(d)
             }

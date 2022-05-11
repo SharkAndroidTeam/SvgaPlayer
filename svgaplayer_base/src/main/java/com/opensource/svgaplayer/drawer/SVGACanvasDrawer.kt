@@ -103,7 +103,7 @@ internal class SVGACanvasDrawer(videoItem: SVGAVideoEntity, private val dynamicI
                 }
                 svgaDrawerSprite.matteKey?.let {
                     if (it.length > 0) {
-                        sprites.get(index - 1)?.let { lastSprite ->
+                        sprites.get(index - 1).let { lastSprite ->
                             if (lastSprite.matteKey.isNullOrEmpty()) {
                                 boolArray[index] = true
                             } else {
@@ -137,7 +137,7 @@ internal class SVGACanvasDrawer(videoItem: SVGAVideoEntity, private val dynamicI
                         if (index == sprites.count() - 1) {
                             boolArray[index] = true
                         } else {
-                            sprites.get(index + 1)?.let { nextSprite ->
+                            sprites.get(index + 1).let { nextSprite ->
                                 if (nextSprite.matteKey.isNullOrEmpty()) {
                                     boolArray[index] = true
                                 } else {

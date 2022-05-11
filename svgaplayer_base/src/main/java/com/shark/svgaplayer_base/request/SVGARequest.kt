@@ -707,7 +707,7 @@ class SVGARequest private constructor(
         private fun resolveSizeResolver(): SizeResolver {
             val target = target
             return if (target is SVGAImageViewTarget && target.view.scaleType.let { it == CENTER || it == MATRIX }) {
-                SizeResolver(OriginalSize)
+                SizeResolver(Size.ORIGINAL)
             } else if (target is ViewTarget<*>) {
                 ViewSizeResolver(target.view)
             } else {
