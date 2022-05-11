@@ -30,7 +30,7 @@ class SVGAVideoEntityDecoder(
 
     override suspend fun decode() = parallelismLock.withPermit {
         runInterruptible {
-            decodeInterruptible(source.source(), options.diskCacheKey ?: "")
+            decode(source.source(), options.diskCacheKey ?: "")
         }
     }
 
@@ -57,7 +57,7 @@ class SVGAVideoEntityDecoder(
         }
     }
 
-    private fun decodeInterruptible(
+    private fun decode(
         source: Source,
         key: String,
     ): DecodeResult {
