@@ -7,13 +7,12 @@ import android.graphics.drawable.Drawable
 import android.widget.ImageView
 import com.opensource.svgaplayer.drawer.SVGACanvasDrawer
 
-class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicEntity) :
-    Drawable() {
+class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicEntity): Drawable() {
 
-    constructor(videoItem: SVGAVideoEntity) : this(videoItem, SVGADynamicEntity())
+    constructor(videoItem: SVGAVideoEntity): this(videoItem, SVGADynamicEntity())
 
     var cleared = true
-        internal set(value) {
+        internal set (value) {
             if (field == value) {
                 return
             }
@@ -22,7 +21,7 @@ class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicE
         }
 
     var currentFrame = 0
-        internal set(value) {
+        internal set (value) {
             if (field == value) {
                 return
             }
@@ -38,11 +37,10 @@ class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicE
         if (cleared) {
             return
         }
-        canvas.let {
-            drawer.drawFrame(it, currentFrame, scaleType)
+        canvas?.let {
+            drawer.drawFrame(it,currentFrame, scaleType)
         }
     }
-
     override fun setAlpha(alpha: Int) {
 
     }
@@ -58,7 +56,11 @@ class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicE
     fun resume() {
         videoItem.audioList.forEach { audio ->
             audio.playID?.let {
-                videoItem.soundPool?.resume(it)
+                if (SVGASoundManager.isInit()){
+                    SVGASoundManager.resume(it)
+                }else{
+                    videoItem.soundPool?.resume(it)
+                }
             }
         }
     }
@@ -66,7 +68,11 @@ class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicE
     fun pause() {
         videoItem.audioList.forEach { audio ->
             audio.playID?.let {
-                videoItem.soundPool?.pause(it)
+                if (SVGASoundManager.isInit()){
+                    SVGASoundManager.pause(it)
+                }else{
+                    videoItem.soundPool?.pause(it)
+                }
             }
         }
     }
@@ -74,7 +80,11 @@ class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicE
     fun stop() {
         videoItem.audioList.forEach { audio ->
             audio.playID?.let {
-                videoItem.soundPool?.stop(it)
+                if (SVGASoundManager.isInit()){
+                    SVGASoundManager.stop(it)
+                }else{
+                    videoItem.soundPool?.stop(it)
+                }
             }
         }
     }
@@ -82,26 +92,14 @@ class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicE
     fun clear() {
         videoItem.audioList.forEach { audio ->
             audio.playID?.let {
-                videoItem.soundPool?.stop(it)
+                if (SVGASoundManager.isInit()){
+                    SVGASoundManager.stop(it)
+                }else{
+                    videoItem.soundPool?.stop(it)
+                }
             }
             audio.playID = null
         }
-        // SvgaLoader中使用了引用记数缓存方案，引用记数为0时才会clear videoEntity
-        // VideoEntityRefCounter
-        // videoItem.clear()
+        videoItem.clear()
     }
-
-//    override fun getIntrinsicWidth(): Int =
-//        if (videoItem.mFrameWidth > 0 && videoItem.mFrameHeight > 0) {
-//            videoItem.mFrameWidth
-//        } else {
-//            videoItem.videoSize.width.toInt()
-//        }
-//
-//    override fun getIntrinsicHeight(): Int =
-//        if (videoItem.mFrameWidth > 0 && videoItem.mFrameHeight > 0) {
-//            videoItem.mFrameHeight
-//        } else {
-//            videoItem.videoSize.height.toInt()
-//        }
 }
