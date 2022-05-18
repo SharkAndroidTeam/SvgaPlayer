@@ -9,13 +9,10 @@ import com.squareup.wire.ProtoReader;
 import com.squareup.wire.ProtoWriter;
 import com.squareup.wire.WireField;
 import com.squareup.wire.internal.Internal;
+
 import java.io.IOException;
-import java.lang.Float;
-import java.lang.Object;
-import java.lang.Override;
-import java.lang.String;
-import java.lang.StringBuilder;
 import java.util.List;
+
 import okio.ByteString;
 
 public final class FrameEntity extends Message<FrameEntity, FrameEntity.Builder> {

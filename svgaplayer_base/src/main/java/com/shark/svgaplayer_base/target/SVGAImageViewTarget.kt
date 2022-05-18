@@ -1,15 +1,15 @@
 package com.shark.svgaplayer_base.target
 
 import android.graphics.drawable.Drawable
+import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
-import com.shark.svgaplayer_base.target.PoolableViewTarget
 import com.opensource.svgaplayer.SVGADrawable
 import com.opensource.svgaplayer.SVGAImageView
 
 /** A [Target] that handles setting images on an [SVGAImageView]. */
 open class SVGAImageViewTarget(
-        override val view: SVGAImageView
+    override val view: SVGAImageView
 ) : PoolableViewTarget<SVGAImageView>, DefaultLifecycleObserver {
 
     private var isStarted = false
@@ -36,7 +36,16 @@ open class SVGAImageViewTarget(
     protected open fun setDrawable(drawable: Drawable?) {
         (view.drawable as? SVGADrawable)?.stop()
         view.setImageDrawable(drawable)
-        updateAnimation()
+        view.drawable?.let {
+            Log.i("SVGAImageViewTarget", "SVGAVideoEntity prepare start")
+            (it as? SVGADrawable)?.videoItem?.prepare({
+                Log.i("SVGAImageViewTarget", "SVGAVideoEntity prepare success to updateAnimation")
+                updateAnimation()
+            }, null) ?: run {
+                Log.i("SVGAImageViewTarget", "SVGAVideoEntity updateAnimation")
+                updateAnimation()
+            }
+        }
     }
 
     /** Start/stop the current [SVGADrawable]'s animation based on the current lifecycle state. */
@@ -44,6 +53,7 @@ open class SVGAImageViewTarget(
         if (view.drawable !is SVGADrawable) return
         if (isStarted) {
             view.stepToFrame(0, view.mAutoPlay)
+//            (view.drawable as? SVGADrawable)?.resume()
         }
     }
 

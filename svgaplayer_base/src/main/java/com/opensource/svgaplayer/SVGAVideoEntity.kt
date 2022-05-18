@@ -13,18 +13,19 @@ import com.opensource.svgaplayer.proto.AudioEntity
 import com.opensource.svgaplayer.proto.MovieEntity
 import com.opensource.svgaplayer.proto.MovieParams
 import com.opensource.svgaplayer.utils.SVGARect
+import com.opensource.svgaplayer.utils.log.LogUtils
 import org.json.JSONObject
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.util.*
 
 /**
  * Created by PonyCui on 16/6/18.
  */
 class SVGAVideoEntity {
 
-    var cleared = false
+    private val TAG = "SVGAVideoEntity"
+
     var antiAlias = true
     var movieItem: MovieEntity? = null
 
@@ -40,10 +41,13 @@ class SVGAVideoEntity {
     internal var spriteList: List<SVGAVideoSpriteEntity> = emptyList()
     internal var audioList: List<SVGAAudioEntity> = emptyList()
     internal var soundPool: SoundPool? = null
-    /*internal*/ var imageMap = HashMap<String, Bitmap>()
+    private var soundCallback: SVGASoundManager.SVGASoundCallBack? = null
+    internal var imageMap = HashMap<String, Bitmap>()
     private var mCacheDir: File
-    /*private*/ var mFrameHeight = 0
-    /*private*/ var mFrameWidth = 0
+    private var mFrameHeight = 0
+    private var mFrameWidth = 0
+    private var mPlayCallback: SVGAParser.PlayCallback? = null
+    private lateinit var mCallback: () -> Unit
 
     constructor(json: JSONObject, cacheDir: File) : this(json, cacheDir, 0, 0)
 
@@ -99,12 +103,14 @@ class SVGAVideoEntity {
         frames = movieParams.frames ?: 0
     }
 
-    internal fun prepare(callback: () -> Unit) {
+    internal fun prepare(callback: () -> Unit, playCallback: SVGAParser.PlayCallback?) {
+        mCallback = callback
+        mPlayCallback = playCallback
         if (movieItem == null) {
-            callback()
+            mCallback()
         } else {
             setupAudios(movieItem!!) {
-                callback()
+                mCallback()
             }
         }
     }
@@ -183,12 +189,21 @@ class SVGAVideoEntity {
     }
 
     private fun setupAudios(entity: MovieEntity, completionBlock: () -> Unit) {
+        LogUtils.debug(TAG, "setupAudios-entity.audios=${entity.audios.size}")
         if (entity.audios == null || entity.audios.isEmpty()) {
             run(completionBlock)
             return
         }
         setupSoundPool(entity, completionBlock)
+        LogUtils.warn(TAG, "setupAudios-setupSoundPool success")
         val audiosFileMap = generateAudioFileMap(entity)
+        LogUtils.warn(TAG, "setupAudios-generateAudioFileMap success")
+        //repair when audioEntity error can not callback
+        //如果audiosFileMap为空 soundPool?.load 不会走 导致 setOnLoadCompleteListener 不会回调 导致外层prepare不回调卡住
+        if (audiosFileMap.size == 0) {
+            run(completionBlock)
+            return
+        }
         this.audioList = entity.audios.map { audio ->
             return@map createSvgaAudioEntity(audio, audiosFileMap)
         }
@@ -198,6 +213,7 @@ class SVGAVideoEntity {
         audio: AudioEntity,
         audiosFileMap: HashMap<String, File>
     ): SVGAAudioEntity {
+        LogUtils.warn(TAG, "setupAudios-createSvgaAudioEntity")
         val item = SVGAAudioEntity(audio)
         val startTime = (audio.startTime ?: 0).toDouble()
         val totalTime = (audio.totalTime ?: 0).toDouble()
@@ -205,11 +221,45 @@ class SVGAVideoEntity {
             // 除数不能为 0
             return item
         }
+        // 直接回调文件,后续播放都不走
+        mPlayCallback?.let {
+            LogUtils.warn(TAG, "setupAudios-createSvgaAudioEntity 直接回调文件,后续播放都不走")
+            val fileList: MutableList<File> = ArrayList()
+            audiosFileMap.forEach { entity ->
+                fileList.add(entity.value)
+            }
+            it.onPlay(fileList)
+            mCallback()
+            return item
+        }
+        LogUtils.warn(TAG, "setupAudios-createSvgaAudioEntity load start")
         audiosFileMap[audio.audioKey]?.let { file ->
             FileInputStream(file).use {
                 val length = it.available().toDouble()
                 val offset = ((startTime / totalTime) * length).toLong()
-                item.soundID = soundPool?.load(it.fd, offset, length.toLong(), 1)
+                if (SVGASoundManager.isInit()) {
+                    LogUtils.warn(
+                        TAG,
+                        "setupAudios-createSvgaAudioEntity load SVGASoundManager load ${it.fd}"
+                    )
+                    item.soundID = SVGASoundManager.load(
+                        soundCallback,
+                        it.fd,
+                        offset,
+                        length.toLong(),
+                        1
+                    )
+                } else {
+                    LogUtils.warn(
+                        TAG,
+                        "setupAudios-createSvgaAudioEntity load soundPool:$soundPool load ${it.fd}"
+                    )
+                    item.soundID = soundPool?.load(it.fd, offset, length.toLong(), 1)
+                    LogUtils.warn(
+                        TAG,
+                        "setupAudios-createSvgaAudioEntity load soundPool:$soundPool load ${it.fd} soundID:${item.soundID}"
+                    )
+                }
             }
         }
         return item
@@ -222,11 +272,15 @@ class SVGAVideoEntity {
     }
 
     private fun generateAudioFileMap(entity: MovieEntity): HashMap<String, File> {
+        LogUtils.warn(TAG, "setupAudios-generateAudioFileMap start")
         val audiosDataMap = generateAudioMap(entity)
+        LogUtils.error(TAG, "setupAudios-generateAudioFileMap success audiosDataMap:$audiosDataMap")
         val audiosFileMap = HashMap<String, File>()
         if (audiosDataMap.count() > 0) {
             audiosDataMap.forEach {
+                LogUtils.warn(TAG, "setupAudios-generateAudioFileMap audioCache start")
                 val audioCache = SVGACache.buildAudioFile(it.key)
+                LogUtils.warn(TAG, "setupAudios-generateAudioFileMap audioCache:$audioCache")
                 audiosFileMap[it.key] =
                     audioCache.takeIf { file -> file.exists() } ?: generateAudioFile(
                         audioCache,
@@ -234,10 +288,12 @@ class SVGAVideoEntity {
                     )
             }
         }
+        LogUtils.warn(TAG, "setupAudios-generateAudioFileMap end")
         return audiosFileMap
     }
 
     private fun generateAudioMap(entity: MovieEntity): HashMap<String, ByteArray> {
+        LogUtils.warn(TAG, "setupAudios-generateAudioMap start")
         val audiosDataMap = HashMap<String, ByteArray>()
         entity.images?.entries?.forEach {
             val imageKey = it.key
@@ -248,6 +304,8 @@ class SVGAVideoEntity {
             val fileTag = byteArray.slice(IntRange(0, 3))
             if (fileTag[0].toInt() == 73 && fileTag[1].toInt() == 68 && fileTag[2].toInt() == 51) {
                 audiosDataMap[imageKey] = byteArray
+            } else if (fileTag[0].toInt() == -1 && fileTag[1].toInt() == -5 && fileTag[2].toInt() == -108) {
+                audiosDataMap[imageKey] = byteArray
             }
         }
         return audiosDataMap
@@ -255,8 +313,26 @@ class SVGAVideoEntity {
 
     private fun setupSoundPool(entity: MovieEntity, completionBlock: () -> Unit) {
         var soundLoaded = 0
+        if (SVGASoundManager.isInit()) {
+            soundCallback = object : SVGASoundManager.SVGASoundCallBack {
+                override fun onVolumeChange(value: Float) {
+                    SVGASoundManager.setVolume(value, this@SVGAVideoEntity)
+                }
+
+                override fun onComplete() {
+                    soundLoaded++
+                    if (soundLoaded >= entity.audios.count()) {
+                        completionBlock()
+                    }
+                }
+            }
+            return
+        }
+        LogUtils.info(TAG, "generateSoundPool start")
         soundPool = generateSoundPool(entity)
+        LogUtils.info(TAG, "generateSoundPool success")
         soundPool?.setOnLoadCompleteListener { _, _, _ ->
+            LogUtils.info(TAG, "pool_complete")
             soundLoaded++
             if (soundLoaded >= entity.audios.count()) {
                 completionBlock()
@@ -264,24 +340,36 @@ class SVGAVideoEntity {
         }
     }
 
-    private fun generateSoundPool(entity: MovieEntity) = if (Build.VERSION.SDK_INT >= 21) {
-        val attributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .build()
-        SoundPool.Builder().setAudioAttributes(attributes)
-            .setMaxStreams(12.coerceAtMost(entity.audios.count()))
-            .build()
-    } else {
-        SoundPool(12.coerceAtMost(entity.audios.count()), AudioManager.STREAM_MUSIC, 0)
+    private fun generateSoundPool(entity: MovieEntity): SoundPool? {
+        return try {
+            if (Build.VERSION.SDK_INT >= 21) {
+                val attributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .build()
+                SoundPool.Builder().setAudioAttributes(attributes)
+                    .setMaxStreams(12.coerceAtMost(entity.audios.count()))
+                    .build()
+            } else {
+                SoundPool(12.coerceAtMost(entity.audios.count()), AudioManager.STREAM_MUSIC, 0)
+            }
+        } catch (e: Exception) {
+            LogUtils.error(TAG, e)
+            null
+        }
     }
 
     fun clear() {
+        if (SVGASoundManager.isInit()) {
+            this.audioList.forEach {
+                it.soundID?.let { id -> SVGASoundManager.unload(id) }
+            }
+            soundCallback = null
+        }
         soundPool?.release()
         soundPool = null
         audioList = emptyList()
         spriteList = emptyList()
         imageMap.clear()
-        cleared = true
     }
 }
 
