@@ -20,10 +20,10 @@
 
     <Button
         android:id="@+id/btn"
-        android:text="加载svga"
         android:layout_width="400dp"
         android:layout_height="40dp"
         android:layout_marginTop="40dp"
+        android:text="加载svga"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/svgaImg" />
@@ -31,13 +31,23 @@
 
     <Button
         android:id="@+id/btnJump"
-        android:text="跳到第二个fragment"
         android:layout_width="400dp"
         android:layout_height="40dp"
         android:layout_marginTop="40dp"
+        android:text="跳到第二个fragment"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/btn" />
+
+    <Button
+        android:id="@+id/btnList"
+        android:layout_width="400dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="40dp"
+        android:text="跳到SVGA列表"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnJump" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

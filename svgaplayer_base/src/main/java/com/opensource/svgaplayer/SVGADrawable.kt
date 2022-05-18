@@ -6,13 +6,15 @@ import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
 import android.widget.ImageView
 import com.opensource.svgaplayer.drawer.SVGACanvasDrawer
+import com.opensource.svgaplayer.utils.log.LogUtils
 
-class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicEntity): Drawable() {
+class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicEntity) :
+    Drawable() {
 
-    constructor(videoItem: SVGAVideoEntity): this(videoItem, SVGADynamicEntity())
+    constructor(videoItem: SVGAVideoEntity) : this(videoItem, SVGADynamicEntity())
 
     var cleared = true
-        internal set (value) {
+        internal set(value) {
             if (field == value) {
                 return
             }
@@ -21,7 +23,7 @@ class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicE
         }
 
     var currentFrame = 0
-        internal set (value) {
+        internal set(value) {
             if (field == value) {
                 return
             }
@@ -38,9 +40,10 @@ class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicE
             return
         }
         canvas?.let {
-            drawer.drawFrame(it,currentFrame, scaleType)
+            drawer.drawFrame(it, currentFrame, scaleType)
         }
     }
+
     override fun setAlpha(alpha: Int) {
 
     }
@@ -54,11 +57,12 @@ class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicE
     }
 
     fun resume() {
+        LogUtils.debug("SVGADrawable", "resume audio")
         videoItem.audioList.forEach { audio ->
             audio.playID?.let {
-                if (SVGASoundManager.isInit()){
+                if (SVGASoundManager.isInit()) {
                     SVGASoundManager.resume(it)
-                }else{
+                } else {
                     videoItem.soundPool?.resume(it)
                 }
             }
@@ -68,9 +72,9 @@ class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicE
     fun pause() {
         videoItem.audioList.forEach { audio ->
             audio.playID?.let {
-                if (SVGASoundManager.isInit()){
+                if (SVGASoundManager.isInit()) {
                     SVGASoundManager.pause(it)
-                }else{
+                } else {
                     videoItem.soundPool?.pause(it)
                 }
             }
@@ -78,11 +82,12 @@ class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicE
     }
 
     fun stop() {
+        LogUtils.debug("SVGADrawable",  "stop audio")
         videoItem.audioList.forEach { audio ->
             audio.playID?.let {
-                if (SVGASoundManager.isInit()){
+                if (SVGASoundManager.isInit()) {
                     SVGASoundManager.stop(it)
-                }else{
+                } else {
                     videoItem.soundPool?.stop(it)
                 }
             }
@@ -92,9 +97,9 @@ class SVGADrawable(val videoItem: SVGAVideoEntity, val dynamicItem: SVGADynamicE
     fun clear() {
         videoItem.audioList.forEach { audio ->
             audio.playID?.let {
-                if (SVGASoundManager.isInit()){
+                if (SVGASoundManager.isInit()) {
                     SVGASoundManager.stop(it)
-                }else{
+                } else {
                     videoItem.soundPool?.stop(it)
                 }
             }

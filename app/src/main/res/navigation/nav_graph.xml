@@ -14,7 +14,12 @@
         <action
             android:id="@+id/action_FirstFragment_to_SecondFragment"
             app:destination="@id/SecondFragment" />
+
+        <action
+            android:id="@+id/action_FirstFragment_to_SVGAListFragment"
+            app:destination="@id/SVGAListFragment" />
     </fragment>
+
     <fragment
         android:id="@+id/SecondFragment"
         android:name="com.shark.svgaplayer.SecondFragment"
@@ -23,6 +28,17 @@
 
         <action
             android:id="@+id/action_SecondFragment_to_FirstFragment"
+            app:destination="@id/FirstFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/SVGAListFragment"
+        android:name="com.shark.svgaplayer.SVGAListFragment"
+        android:label="@string/svga_fragment_list"
+        tools:layout="@layout/fragment_list">
+
+        <action
+            android:id="@+id/action_SVGAListFragment_to_FirstFragment"
             app:destination="@id/FirstFragment" />
     </fragment>
 </navigation>

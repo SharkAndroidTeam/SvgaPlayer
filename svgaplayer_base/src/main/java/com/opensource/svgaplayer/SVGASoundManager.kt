@@ -49,6 +49,7 @@ object SVGASoundManager {
     }
 
     fun init() {
+        LogUtils.debug(TAG, "SVGASoundManager init")
         init(20)
     }
 
@@ -128,20 +129,22 @@ object SVGASoundManager {
 
     private fun getSoundPool(maxStreams: Int) = if (Build.VERSION.SDK_INT >= 21) {
         val attributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .build()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .build()
         SoundPool.Builder().setAudioAttributes(attributes)
-                .setMaxStreams(maxStreams)
-                .build()
+            .setMaxStreams(maxStreams)
+            .build()
     } else {
         SoundPool(maxStreams, AudioManager.STREAM_MUSIC, 0)
     }
 
-    internal fun load(callBack: SVGASoundCallBack?,
-                      fd: FileDescriptor?,
-                      offset: Long,
-                      length: Long,
-                      priority: Int): Int {
+    internal fun load(
+        callBack: SVGASoundCallBack?,
+        fd: FileDescriptor?,
+        offset: Long,
+        length: Long,
+        priority: Int
+    ): Int {
         if (!checkInit()) return -1
 
         val soundId = soundPool!!.load(fd, offset, length, priority)

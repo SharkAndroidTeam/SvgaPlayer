@@ -9,22 +9,83 @@
 
     <com.opensource.svgaplayer.SVGAImageView
         android:id="@+id/svgaImg"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="200dp"
+        android:layout_height="0dp"
         app:autoPlay="true"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintDimensionRatio="h,1:1"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <com.opensource.svgaplayer.SVGAImageView
+        android:id="@+id/svgaImgAudio"
+        android:layout_width="200dp"
+        android:layout_height="0dp"
+        app:autoPlay="true"
+        app:layout_constraintDimensionRatio="h,1:1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <com.opensource.svgaplayer.SVGAImageView
+        android:id="@+id/svgaImgAudio1"
+        android:layout_width="200dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="200dp"
+        app:autoPlay="true"
+        app:layout_constraintDimensionRatio="h,1:1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <com.opensource.svgaplayer.SVGAImageView
+        android:id="@+id/svgaImgAudio2"
+        android:layout_width="200dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="200dp"
+        app:autoPlay="true"
+        app:layout_constraintDimensionRatio="h,1:1"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.7" />
+
+    <Button
+        android:id="@+id/btnAudio"
+        android:layout_width="400dp"
+        android:layout_height="40dp"
+        android:text="加载svga"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/guideline" />
 
     <Button
         android:id="@+id/btn"
         android:layout_width="400dp"
         android:layout_height="40dp"
-        android:layout_marginTop="40dp"
         android:text="加载svga"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/svgaImg" />
+        app:layout_constraintTop_toBottomOf="@+id/btnAudio" />
+
+    <Button
+        android:id="@+id/btn1"
+        android:layout_width="400dp"
+        android:layout_height="40dp"
+        android:text="加载svga"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btn" />
+
+    <Button
+        android:id="@+id/btn2"
+        android:layout_width="400dp"
+        android:layout_height="40dp"
+        android:text="加载svga"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btn1" />
 </androidx.constraintlayout.widget.ConstraintLayout>

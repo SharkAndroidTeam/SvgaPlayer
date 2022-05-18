@@ -9,6 +9,7 @@ import com.opensource.svgaplayer.SVGADynamicEntity
 import com.opensource.svgaplayer.SVGASoundManager
 import com.opensource.svgaplayer.SVGAVideoEntity
 import com.opensource.svgaplayer.entities.SVGAVideoShapeEntity
+import com.opensource.svgaplayer.utils.log.LogUtils
 
 /**
  * Created by cuiminghui on 2017/3/29.
@@ -181,6 +182,7 @@ internal class SVGACanvasDrawer(videoItem: SVGAVideoEntity, val dynamicItem: SVG
                     this.videoItem.soundPool?.let { soundPool ->
                         audio.soundID?.let { soundID ->
                             audio.playID = soundPool.play(soundID, 1.0f, 1.0f, 1, 0, 1.0f)
+                            LogUtils.debug("SVGACanvasDrawer", "audio.playID:${audio.playID}")
                         }
                     }
                 }

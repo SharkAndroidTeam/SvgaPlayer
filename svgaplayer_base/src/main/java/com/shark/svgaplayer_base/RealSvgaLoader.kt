@@ -5,7 +5,10 @@ import android.util.Log
 import androidx.annotation.MainThread
 import com.shark.svgaplayer_base.decode.SVGAVideoEntityDecoder
 import com.shark.svgaplayer_base.disk.DiskCache
-import com.shark.svgaplayer_base.fetch.*
+import com.shark.svgaplayer_base.fetch.AssetUriFetcher
+import com.shark.svgaplayer_base.fetch.FileFetcher
+import com.shark.svgaplayer_base.fetch.HttpUriFetcher
+import com.shark.svgaplayer_base.fetch.ResourceUriFetcher
 import com.shark.svgaplayer_base.intercept.EngineInterceptor
 import com.shark.svgaplayer_base.intercept.RealInterceptorChain
 import com.shark.svgaplayer_base.key.FileKeyer
@@ -13,9 +16,8 @@ import com.shark.svgaplayer_base.key.UriKeyer
 import com.shark.svgaplayer_base.map.FileUriMapper
 import com.shark.svgaplayer_base.map.ResourceUriMapper
 import com.shark.svgaplayer_base.map.StringMapper
-import com.shark.svgaplayer_base.memory.*
+import com.shark.svgaplayer_base.memory.MemoryCache
 import com.shark.svgaplayer_base.request.*
-import com.shark.svgaplayer_base.size.Size
 import com.shark.svgaplayer_base.target.Target
 import com.shark.svgaplayer_base.target.ViewTarget
 import com.shark.svgaplayer_base.util.*
@@ -68,11 +70,16 @@ internal class RealSvgaLoader(
         .add(AssetUriFetcher.Factory())
         .add(ResourceUriFetcher.Factory())
         // Decoders
-        .add(SVGAVideoEntityDecoder.Factory(options.bitmapFactoryMaxParallelism))
+        .add(SVGAVideoEntityDecoder.Factory(options.bitmapFactoryMaxParallelism,logger))
         .build()
 
     private val interceptors =
-        components.interceptors + EngineInterceptor(this, requestService, logger,callFactoryLazy.value,)
+        components.interceptors + EngineInterceptor(
+            this,
+            requestService,
+            logger,
+            callFactoryLazy.value,
+        )
 
     private val isShutdown = AtomicBoolean(false)
 
@@ -218,6 +225,7 @@ internal class RealSvgaLoader(
             " Failed - ${request.data} - ${result.throwable}"
         }
 //        transition(result, target, eventListener) { target?.onError() }
+        logger?.log(TAG, Log.INFO) { "onError Failed - ${request.data} - ${result.throwable}" }
         target?.onError()
         eventListener.onError(request, result.throwable)
         request.listener?.onError(request, result.throwable)

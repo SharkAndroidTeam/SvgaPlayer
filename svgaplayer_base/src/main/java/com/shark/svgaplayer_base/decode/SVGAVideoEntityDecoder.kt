@@ -1,11 +1,15 @@
 package com.shark.svgaplayer_base.decode
 
+import android.util.Log
+import com.opensource.svgaplayer.SVGACache
+import com.opensource.svgaplayer.SVGASoundManager
 import com.opensource.svgaplayer.SVGAVideoEntity
 import com.opensource.svgaplayer.proto.MovieEntity
+import com.opensource.svgaplayer.utils.log.SVGALogger
+import com.shark.svgaplayer_base.BuildConfig
 import com.shark.svgaplayer_base.SvgaLoader
 import com.shark.svgaplayer_base.fetch.SourceResult
 import com.shark.svgaplayer_base.request.Options
-import com.shark.svgaplayer_base.size.Size
 import com.shark.svgaplayer_base.util.*
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Semaphore
@@ -25,11 +29,21 @@ import java.util.zip.ZipInputStream
 class SVGAVideoEntityDecoder(
     private val source: SVGASource,
     private val options: Options,
-    private val parallelismLock: Semaphore = Semaphore(Int.MAX_VALUE)
+    private val parallelismLock: Semaphore = Semaphore(Int.MAX_VALUE),
+    private val logger: Logger?
 ) : Decoder {
+
+    init {
+        SVGACache.onCreate(options.context)
+        SVGASoundManager.init()
+        SVGALogger.setLogEnabled(BuildConfig.DEBUG)
+    }
 
     override suspend fun decode() = parallelismLock.withPermit {
         runInterruptible {
+            logger?.log("SVGAVideoEntityDecoder", Log.INFO) {
+                "SVGAVideoEntityDecoder-source:${source.file()} key:${options.diskCacheKey}"
+            }
             decode(source.source(), options.diskCacheKey ?: "")
         }
     }
@@ -69,6 +83,9 @@ class SVGAVideoEntityDecoder(
         val decodeHeight = -1
 
         if (Utils.isZipFormat(safeBufferedSource)) {
+            logger?.log("SVGAVideoEntityDecoder", Log.INFO) {
+                "SVGAVideoEntityDecoder-source:$source isZipFormat"
+            }
             if (cacheDir.isDirectory && cacheDir.list().isNotEmpty()) {
                 return decodeUnZipFile(cacheDir, decodeWidth, decodeHeight)
             } else {
@@ -84,6 +101,9 @@ class SVGAVideoEntityDecoder(
             }
             return decodeUnZipFile(cacheDir, decodeWidth, decodeHeight)
         } else {
+            logger?.log("SVGAVideoEntityDecoder", Log.INFO) {
+                "SVGAVideoEntityDecoder-source:$source is not ZipFormat"
+            }
             safeSource.exception?.let { throw it }
             return decodeSource(cacheDir, safeBufferedSource, decodeWidth, decodeHeight)
         }
@@ -136,13 +156,21 @@ class SVGAVideoEntityDecoder(
         width: Int,
         height: Int
     ): DecodeResult {
+        logger?.log("SVGAVideoEntityDecoder", Log.INFO) {
+            "SVGAVideoEntity decodeSource start"
+        }
+        val bytes = inflate(source.peek().readByteArray())
+        val entity = SVGAVideoEntity(
+            MovieEntity.ADAPTER.decode(bytes),
+            cache,
+            width,
+            height
+        )
+        logger?.log("SVGAVideoEntityDecoder", Log.INFO) {
+            "decodeSource success :$entity"
+        }
         return DecodeResult(
-            entity = SVGAVideoEntity(
-                MovieEntity.ADAPTER.decode(inflate(source.peek().readByteArray())),
-                cache,
-                width,
-                height
-            ),
+            entity = entity,
             isSampled = false
         )
     }
@@ -153,6 +181,9 @@ class SVGAVideoEntityDecoder(
         width: Int,
         height: Int
     ): DecodeResult {
+        logger?.log("SVGAVideoEntityDecoder", Log.INFO) {
+            "SVGAVideoEntity decodeBinaryFile start"
+        }
         FileInputStream(binary).use {
             return DecodeResult(
                 entity = SVGAVideoEntity(MovieEntity.ADAPTER.decode(it), source, width, height),
@@ -167,6 +198,9 @@ class SVGAVideoEntityDecoder(
         width: Int,
         height: Int
     ): DecodeResult {
+        logger?.log("SVGAVideoEntityDecoder", Log.INFO) {
+            "SVGAVideoEntity decodeSpecFile start"
+        }
         FileInputStream(jsonFile).use { fileInputStream ->
             val buffer = ByteArray(2048)
             ByteArrayOutputStream().use { byteArrayOutputStream ->
@@ -203,7 +237,8 @@ class SVGAVideoEntityDecoder(
 
 
     class Factory @JvmOverloads constructor(
-        maxParallelism: Int = DEFAULT_MAX_PARALLELISM
+        maxParallelism: Int = DEFAULT_MAX_PARALLELISM,
+        private val logger: Logger?
     ) : Decoder.Factory {
 
         private val parallelismLock = Semaphore(maxParallelism)
@@ -213,7 +248,7 @@ class SVGAVideoEntityDecoder(
             options: Options,
             imageLoader: SvgaLoader
         ): Decoder {
-            return SVGAVideoEntityDecoder(result.source, options, parallelismLock)
+            return SVGAVideoEntityDecoder(result.source, options, parallelismLock, logger)
         }
 
         override fun equals(other: Any?) = other is Factory
