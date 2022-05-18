@@ -13,6 +13,7 @@ import android.widget.ImageView
 import com.opensource.svgaplayer.utils.SVGARange
 import com.opensource.svgaplayer.utils.log.LogUtils
 import com.shark.svgaplayer_base.R
+import com.shark.svgaplayer_base.util.load
 import java.lang.ref.WeakReference
 import java.net.URL
 
@@ -94,34 +95,35 @@ open class SVGAImageView @JvmOverloads constructor(
 
     private fun parserSource(source: String) {
         val refImgView = WeakReference<SVGAImageView>(this)
-        val parser = SVGAParser(context)
-        if (source.startsWith("http://") || source.startsWith("https://")) {
-            parser.decodeFromURL(URL(source), createParseCompletion(refImgView))
-        } else {
-            parser.decodeFromAssets(source, createParseCompletion(refImgView))
-        }
+        refImgView.get()?.load(source)
+//        val parser = SVGAParser(context)
+//        if (source.startsWith("http://") || source.startsWith("https://")) {
+//            parser.decodeFromURL(URL(source), createParseCompletion(refImgView))
+//        } else {
+//            parser.decodeFromAssets(source, createParseCompletion(refImgView))
+//        }
     }
 
-    private fun createParseCompletion(ref: WeakReference<SVGAImageView>): SVGAParser.ParseCompletion {
-        return object : SVGAParser.ParseCompletion {
-            override fun onComplete(videoItem: SVGAVideoEntity) {
-                ref.get()?.startAnimation(videoItem)
-            }
+//    private fun createParseCompletion(ref: WeakReference<SVGAImageView>): SVGAParser.ParseCompletion {
+//        return object : SVGAParser.ParseCompletion {
+//            override fun onComplete(videoItem: SVGAVideoEntity) {
+//                ref.get()?.startAnimation(videoItem)
+//            }
+//
+//            override fun onError() {}
+//        }
+//    }
 
-            override fun onError() {}
-        }
-    }
-
-    private fun startAnimation(videoItem: SVGAVideoEntity) {
-        this@SVGAImageView.post {
-            videoItem.antiAlias = mAntiAlias
-            setVideoItem(videoItem)
-            getSVGADrawable()?.scaleType = scaleType
-            if (mAutoPlay) {
-                startAnimation()
-            }
-        }
-    }
+//    private fun startAnimation(videoItem: SVGAVideoEntity) {
+//        this@SVGAImageView.post {
+//            videoItem.antiAlias = mAntiAlias
+//            setVideoItem(videoItem)
+//            getSVGADrawable()?.scaleType = scaleType
+//            if (mAutoPlay) {
+//                startAnimation()
+//            }
+//        }
+//    }
 
     fun startAnimation() {
         startAnimation(null, false)

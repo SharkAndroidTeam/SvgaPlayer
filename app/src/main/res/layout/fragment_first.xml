@@ -12,6 +12,7 @@
         android:layout_width="40dp"
         android:layout_height="40dp"
         app:autoPlay="true"
+        app:source="https://media.kaiyinhn.cn/MTY1MjA4Njg1Nzk4OCM2Mjkjc3ZnYQ==.svga"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
