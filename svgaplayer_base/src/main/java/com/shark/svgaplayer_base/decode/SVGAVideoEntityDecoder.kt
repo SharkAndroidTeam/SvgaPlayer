@@ -153,12 +153,15 @@ class SVGAVideoEntityDecoder(
         width: Int,
         height: Int
     ): DecodeResult {
-        FileInputStream(binary).use {
-            return DecodeResult(
-                entity = SVGAVideoEntity(MovieEntity.ADAPTER.decode(it), source, width, height),
-                isSampled = false
-            )
-        }
+        return DecodeResult(
+            entity = SVGAVideoEntity(
+                MovieEntity.ADAPTER.decode(binary.source().buffer()),
+                source,
+                width,
+                height
+            ),
+            isSampled = false
+        )
     }
 
     private fun decodeSpecFile(
