@@ -42,7 +42,7 @@ class SVGAListFragment : Fragment() {
                 SVGAModel(
                     when (index % 3) {
                         1 -> "angel.svga"
-                        2 -> "angel.svga"
+                        2 -> "jojo_audio.svga"
                         else -> "angel.svga"
                     }, index
                 )

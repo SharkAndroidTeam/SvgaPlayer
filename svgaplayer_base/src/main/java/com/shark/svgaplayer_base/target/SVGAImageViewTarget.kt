@@ -38,13 +38,14 @@ open class SVGAImageViewTarget(
         view.setImageDrawable(drawable)
         view.drawable?.let {
             Log.i("SVGAImageViewTarget", "SVGAVideoEntity prepare start")
-            (it as? SVGADrawable)?.videoItem?.prepare({
-                Log.i("SVGAImageViewTarget", "SVGAVideoEntity prepare success to updateAnimation")
-                updateAnimation()
-            }, null) ?: run {
-                Log.i("SVGAImageViewTarget", "SVGAVideoEntity updateAnimation")
-                updateAnimation()
-            }
+//            (it as? SVGADrawable)?.videoItem?.prepare({
+//                Log.i("SVGAImageViewTarget", "SVGAVideoEntity prepare success to updateAnimation")
+//                updateAnimation()
+//            }, null) ?: run {
+//                Log.i("SVGAImageViewTarget", "SVGAVideoEntity updateAnimation")
+//                updateAnimation()
+//            }
+            updateAnimation()
         }
     }
 
