@@ -75,6 +75,7 @@ internal class RealWeakMemoryCache: WeakMemoryCache {
         return value
     }
 
+    @Synchronized
     override fun set(key: Key, videoEntity: SVGAVideoEntity, extras: Map<String, Any>, size: Int) {
         val values = cache.getOrPut(key) { arrayListOf() }
 
