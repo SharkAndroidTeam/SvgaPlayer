@@ -2,6 +2,7 @@ plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
     id("kotlin-parcelize")
+    id("maven-publish")
 }
 
 android {
@@ -42,4 +43,17 @@ dependencies {
     api(libs.okhttp)
     api(libs.okio)
     api(libs.wire)
+}
+
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                groupId = "com.shark.svga_player"
+                artifactId = "svga_plaer"
+                version = "1.0.2"
+            }
+        }
+    }
 }
