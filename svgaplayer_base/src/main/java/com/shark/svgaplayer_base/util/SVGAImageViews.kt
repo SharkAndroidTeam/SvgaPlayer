@@ -73,9 +73,9 @@ inline fun SVGAImageView.loadAny(
     builder: SVGARequest.Builder.() -> Unit = {}
 ): Disposable {
     val request = SVGARequest.Builder(context)
+        .apply(builder)
         .data(data)
         .target(this)
-        .apply(builder)
         .build()
     return imageLoader.enqueue(request)
 }

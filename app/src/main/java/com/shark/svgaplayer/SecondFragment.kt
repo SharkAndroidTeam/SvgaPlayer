@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.shark.svgaplayer.databinding.FragmentSecondBinding
+import com.shark.svgaplayer_base.request.SVGARequest
 import com.shark.svgaplayer_base.util.loadAsset
 
 /**
@@ -37,7 +38,9 @@ class SecondFragment : Fragment() {
                 binding.root.removeView(binding.svgaImgAudio)
                 return@setOnClickListener
             }
-            binding.svgaImgAudio.loadAsset("mp3_to_long.svga")
+            binding.svgaImgAudio.loadAsset("mp3_to_long.svga", builder = {
+                setEnableAudio(false)
+            })
         }
 
         binding.btn.setOnClickListener {
@@ -45,21 +48,27 @@ class SecondFragment : Fragment() {
                 binding.root.removeView(binding.svgaImg)
                 return@setOnClickListener
             }
-            binding.svgaImg.loadAsset("mp3_to_long.svga")
+            binding.svgaImg.loadAsset("mp3_to_long.svga",builder = {
+                setEnableAudio(false)
+            })
         }
         binding.btn2.setOnClickListener {
             if (binding.svgaImgAudio2.isAnimating) {
                 binding.root.removeView(binding.svgaImgAudio2)
                 return@setOnClickListener
             }
-            binding.svgaImgAudio2.loadAsset("mp3_to_long.svga")
+            binding.svgaImgAudio2.loadAsset("mp3_to_long.svga",builder = {
+                setEnableAudio(false)
+            })
         }
         binding.btn1.setOnClickListener {
             if (binding.svgaImgAudio1.isAnimating) {
                 binding.root.removeView(binding.svgaImgAudio1)
                 return@setOnClickListener
             }
-            binding.svgaImgAudio1.loadAsset("mp3_to_long.svga")
+            binding.svgaImgAudio1.loadAsset("mp3_to_long.svga",builder = {
+                setEnableAudio(false)
+            })
         }
     }
 

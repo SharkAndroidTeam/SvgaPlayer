@@ -105,7 +105,9 @@ class SVGARequest private constructor(
     val defined: DefinedRequestOptions,
 
     /** The defaults used to fill unset values. */
-    val defaults: DefaultRequestOptions
+    val defaults: DefaultRequestOptions,
+
+    val enableAudio: Boolean = false
 ) {
     @JvmOverloads
     fun newBuilder(context: Context = this.context) = Builder(this, context)
@@ -139,6 +141,7 @@ class SVGARequest private constructor(
         if (networkCachePolicy != other.networkCachePolicy) return false
         if (defined != other.defined) return false
         if (defaults != other.defaults) return false
+        if (enableAudio != other.enableAudio) return false
 
         return true
     }
@@ -168,11 +171,12 @@ class SVGARequest private constructor(
         result = 31 * result + networkCachePolicy.hashCode()
         result = 31 * result + defined.hashCode()
         result = 31 * result + defaults.hashCode()
+        result = 31 * result + enableAudio.hashCode()
         return result
     }
 
     override fun toString(): String {
-        return "SVGARequest(context=$context, data=$data, target=$target, listener=$listener, memoryCacheKey=$memoryCacheKey, diskCacheKey=$diskCacheKey, fetcherFactory=$fetcherFactory, decoderFactory=$decoderFactory, dynamicEntityBuilder=$dynamicEntityBuilder, headers=$headers, tags=$tags, parameters=$parameters, lifecycle=$lifecycle, sizeResolver=$sizeResolver, interceptorDispatcher=$interceptorDispatcher, fetcherDispatcher=$fetcherDispatcher, decoderDispatcher=$decoderDispatcher, precision=$precision, allowHardware=$allowHardware, memoryCachePolicy=$memoryCachePolicy, diskCachePolicy=$diskCachePolicy, networkCachePolicy=$networkCachePolicy, defined=$defined, defaults=$defaults)"
+        return "SVGARequest(context=$context, data=$data, target=$target, listener=$listener, memoryCacheKey=$memoryCacheKey, diskCacheKey=$diskCacheKey, fetcherFactory=$fetcherFactory, decoderFactory=$decoderFactory, dynamicEntityBuilder=$dynamicEntityBuilder, headers=$headers, tags=$tags, parameters=$parameters, lifecycle=$lifecycle, sizeResolver=$sizeResolver, interceptorDispatcher=$interceptorDispatcher, fetcherDispatcher=$fetcherDispatcher, decoderDispatcher=$decoderDispatcher, precision=$precision, allowHardware=$allowHardware, memoryCachePolicy=$memoryCachePolicy, diskCachePolicy=$diskCachePolicy, networkCachePolicy=$networkCachePolicy, defined=$defined, defaults=$defaults enableAudio:$enableAudio)"
     }
 
 
@@ -245,6 +249,8 @@ class SVGARequest private constructor(
         private var resolvedLifecycle: Lifecycle?
         private var resolvedSizeResolver: SizeResolver?
 
+        private var enableAudio: Boolean?
+
         constructor(context: Context) {
             this.context = context
             defaults = DEFAULT_REQUEST_OPTIONS
@@ -274,6 +280,7 @@ class SVGARequest private constructor(
             interceptorDispatcher = null
             fetcherDispatcher = null
             decoderDispatcher = null
+            enableAudio = false
         }
 
         @JvmOverloads
@@ -309,6 +316,7 @@ class SVGARequest private constructor(
                 resolvedLifecycle = null
                 resolvedSizeResolver = null
             }
+            enableAudio = request.enableAudio
         }
 
         /**
@@ -596,7 +604,8 @@ class SVGARequest private constructor(
         /**
          * Convenience function to set [imageView] as the [Target].
          */
-        fun target(imageView: SVGAImageView) = target(SVGAImageViewTarget(imageView))
+        fun target(imageView: SVGAImageView) =
+            target(SVGAImageViewTarget(imageView, enableAudio = enableAudio == true))
 
         /**
          * Convenience function to create and set the [Target].
@@ -645,6 +654,10 @@ class SVGARequest private constructor(
             resetResolvedScale()
         }
 
+        fun setEnableAudio(enable: Boolean) = apply {
+            this.enableAudio = enable
+        }
+
         /**
          * Create a new [SVGARequest].
          */
@@ -685,6 +698,7 @@ class SVGARequest private constructor(
                     networkCachePolicy
                 ),
                 defaults = defaults,
+                enableAudio = enableAudio == true
             )
         }
 

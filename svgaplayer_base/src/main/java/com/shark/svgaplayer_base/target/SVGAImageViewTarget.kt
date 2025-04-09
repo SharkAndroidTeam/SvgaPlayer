@@ -9,7 +9,8 @@ import com.opensource.svgaplayer.SVGAImageView
 
 /** A [Target] that handles setting images on an [SVGAImageView]. */
 open class SVGAImageViewTarget(
-    override val view: SVGAImageView
+    override val view: SVGAImageView,
+    val enableAudio: Boolean = false
 ) : PoolableViewTarget<SVGAImageView>, DefaultLifecycleObserver {
 
     private var isStarted = false
@@ -37,15 +38,22 @@ open class SVGAImageViewTarget(
         (view.drawable as? SVGADrawable)?.stop()
         view.setImageDrawable(drawable)
         view.drawable?.let {
-            Log.i("SVGAImageViewTarget", "SVGAVideoEntity prepare start")
-//            (it as? SVGADrawable)?.videoItem?.prepare({
-//                Log.i("SVGAImageViewTarget", "SVGAVideoEntity prepare success to updateAnimation")
-//                updateAnimation()
-//            }, null) ?: run {
-//                Log.i("SVGAImageViewTarget", "SVGAVideoEntity updateAnimation")
-//                updateAnimation()
-//            }
-            updateAnimation()
+            if (enableAudio) {
+                Log.i("SVGAImageViewTarget", "SVGAVideoEntity prepare start")
+                (it as? SVGADrawable)?.videoItem?.prepare({
+                    Log.i(
+                        "SVGAImageViewTarget",
+                        "SVGAVideoEntity prepare success to updateAnimation"
+                    )
+                    updateAnimation()
+                }, null) ?: run {
+                    Log.i("SVGAImageViewTarget", "SVGAVideoEntity updateAnimation")
+                    updateAnimation()
+                }
+            } else {
+                updateAnimation()
+            }
+//            updateAnimation()
         }
     }
 
