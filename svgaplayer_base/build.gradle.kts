@@ -17,7 +17,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             proguardFiles("proguard-rules.pro", "consumer-rules.pro")
         }
 
@@ -46,6 +46,7 @@ dependencies {
 }
 
 
+
 afterEvaluate {
     publishing {
         publications {
@@ -53,7 +54,10 @@ afterEvaluate {
                 groupId = "com.shark.svga_player"
                 artifactId = "svga_player"
                 version = "1.0.3"
+
+                from(components["release"])
             }
         }
     }
 }
+
