@@ -51,8 +51,8 @@ afterEvaluate {
         publications {
             create<MavenPublication>("release") {
                 groupId = "com.shark.svga_player"
-                artifactId = "svga_plaer"
-                version = "1.0.2"
+                artifactId = "svga_player"
+                version = "1.0.3"
             }
         }
     }
