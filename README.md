@@ -4,17 +4,17 @@
 
 在根目录gradle文件添加jitpack仓库
 ```
-		repositories {
-			mavenCentral()
-			maven { url 'https://jitpack.io' }
-		}
+repositories {
+    mavenCentral()
+	maven { url 'https://jitpack.io' }
+}
 
 ```
 在对应module.gradle文件添加依赖
 ```
 dependencies {
-	        implementation 'com.github.SharkAndroidTeam:SvgaPlayer:1.0.3'
-	}
+    implementation 'com.github.SharkAndroidTeam:SvgaPlayer:1.0.3'
+}
 ```
 
 ## 1.基本用法
